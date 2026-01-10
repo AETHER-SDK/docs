@@ -1,0 +1,163 @@
+---
+title: "Network Switching"
+description: "Switch between Devnet and Mainnet"
+---
+
+## Overview
+
+PayGate supports two Solana networks:
+
+| Network | Usage | USDC |
+|---------|-------|------|
+| **Devnet** | Testing and development | Test USDC (free) |
+| **Mainnet** | Production | Real USDC |
+
+<Frame>
+  <img src="/images/paygate/network-switch.png" alt="Network selector" />
+</Frame>
+
+## Switching Networks
+
+### In the Dashboard
+
+1. Log in to the [dashboard](https://paygate.getaether.xyz)
+2. Find the network selector (top right)
+3. Click to switch between **Devnet** and **Mainnet**
+
+### Impact of Switching
+
+When you change networks:
+
+| Element | Behavior |
+|---------|----------|
+| Products | Shows only products from selected network |
+| Transactions | Shows only transactions from that network |
+| Statistics | Calculated based on current network |
+| API Keys | Work on both networks |
+
+## Devnet: Test Mode
+
+### When to Use Devnet
+
+- Test product creation
+- Test payment flow
+- Develop your integration
+- Train your team
+
+### Getting Devnet USDC
+
+1. Go to [SPL Token Faucet](https://spl-token-faucet.com/)
+2. Connect your wallet
+3. Select USDC (Devnet)
+4. Request free tokens
+
+### Getting Devnet SOL
+
+```bash
+solana airdrop 2 YOUR_ADDRESS --url devnet
+```
+
+<Note>
+Devnet USDC and SOL have no real value. They are only for testing.
+</Note>
+
+## Mainnet: Production Mode
+
+### When to Use Mainnet
+
+- Receive real payments
+- Launch your product
+- Real money transactions
+
+### Mainnet Prerequisites
+
+1. Wallet with SOL (for fees ~$0.00025)
+2. Real USDC to test a purchase
+3. Products configured on Mainnet
+
+<Warning>
+On Mainnet, payments are real and irreversible. Test on Devnet first!
+</Warning>
+
+## Creating Products by Network
+
+### Devnet Product (Test)
+
+```yaml
+Title: My Product (Test)
+Price: 0.10 USDC
+Network: devnet
+```
+
+### Mainnet Product (Production)
+
+```yaml
+Title: My Product
+Price: 0.10 USDC
+Network: mainnet-beta
+```
+
+<Tip>
+First create an identical product on Devnet to test, then create the Mainnet version.
+</Tip>
+
+## Migration Devnet → Mainnet
+
+### Checklist
+
+1. **Test on Devnet**
+   - Product creation OK
+   - Payment OK
+   - Webhooks OK
+   - Access OK
+
+2. **Create on Mainnet**
+   - Same configuration
+   - Same price (or adjusted)
+   - Same webhooks
+
+3. **Update your links**
+   - Replace Devnet product ID with Mainnet
+   - Verify redirects
+
+4. **Test with a small amount**
+   - Make a real test purchase
+   - Verify webhook
+   - Verify access
+
+## USDC Addresses
+
+| Network | Mint Address |
+|---------|--------------|
+| Devnet | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
+| Mainnet | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+
+## API and Network
+
+The PayGate API automatically detects the network from the product:
+
+```typescript
+// Network is determined by the product
+const response = await fetch(
+  'https://api-paygate.getaether.xyz/public/products/prod_xxx',
+  { headers: { 'X-API-Key': apiKey } }
+);
+
+const product = await response.json();
+console.log(product.network); // "devnet" or "mainnet-beta"
+```
+
+## Best Practices
+
+1. **Always test on Devnet first**
+2. **Keep mirror products** (Devnet and Mainnet)
+3. **Use environment variables** for product IDs
+4. **Document IDs** for each environment
+
+```bash
+# .env.development
+PAYGATE_PRODUCT_ID=prod_devnet_xxx
+
+# .env.production
+PAYGATE_PRODUCT_ID=prod_mainnet_xxx
+```

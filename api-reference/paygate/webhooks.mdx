@@ -1,0 +1,265 @@
+---
+title: "Webhooks API"
+description: "Webhook event formats and handling"
+---
+
+## Overview
+
+Webhooks are sent as POST requests to your configured endpoint with a JSON payload.
+
+## Event Types
+
+| Event | Description |
+|-------|-------------|
+| `payment.completed` | Payment successfully processed |
+| `feature.unlocked` | Feature unlock product purchased |
+| `access.verified` | Access token verified via API |
+| `product.created` | New product created |
+| `product.updated` | Product settings changed |
+| `product.deleted` | Product removed |
+
+---
+
+## payment.completed
+
+Sent when a payment is successfully processed.
+
+### Payload
+
+```json
+{
+  "type": "payment.completed",
+  "productId": "prod_abc123xyz",
+  "productTitle": "Premium Article",
+  "walletAddress": "7xK3abcdefghijklmnop",
+  "txHash": "5defghijklmnopqrstuvwxyz123456789",
+  "amount": "0.50",
+  "currency": "USDC",
+  "network": "mainnet-beta",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Always `payment.completed` |
+| `productId` | string | Product identifier |
+| `productTitle` | string | Product name |
+| `walletAddress` | string | Payer's wallet |
+| `txHash` | string | Solana transaction hash |
+| `amount` | string | Payment amount |
+| `currency` | string | Always `USDC` |
+| `network` | string | Solana network |
+| `timestamp` | string | ISO 8601 timestamp |
+
+---
+
+## feature.unlocked
+
+Sent when a feature unlock product is purchased.
+
+### Payload
+
+```json
+{
+  "type": "feature.unlocked",
+  "productId": "prod_feature123",
+  "productTitle": "Pro Plan",
+  "accessToken": "ft_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6",
+  "featureIds": [
+    "pro_analytics",
+    "pro_export",
+    "pro_themes"
+  ],
+  "walletAddress": "7xK3abcdefghijklmnop",
+  "txHash": "5defghijklmnopqrstuvwxyz123456789",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+### Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Always `feature.unlocked` |
+| `productId` | string | Product identifier |
+| `productTitle` | string | Product name |
+| `accessToken` | string | Generated access token |
+| `featureIds` | string[] | Unlocked feature identifiers |
+| `walletAddress` | string | Purchaser's wallet |
+| `txHash` | string | Solana transaction hash |
+| `timestamp` | string | ISO 8601 timestamp |
+
+---
+
+## product.created
+
+Sent when a new product is created.
+
+### Payload
+
+```json
+{
+  "type": "product.created",
+  "productId": "prod_new123",
+  "productTitle": "New Product",
+  "productType": "content",
+  "price": "1.00",
+  "currency": "USDC",
+  "status": "active",
+  "network": "mainnet-beta",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+## product.updated
+
+Sent when a product is updated.
+
+### Payload
+
+```json
+{
+  "type": "product.updated",
+  "productId": "prod_abc123",
+  "productTitle": "Updated Product",
+  "productType": "content",
+  "price": "2.00",
+  "currency": "USDC",
+  "status": "active",
+  "network": "mainnet-beta",
+  "changes": ["price", "status"],
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+## product.deleted
+
+Sent when a product is deleted.
+
+### Payload
+
+```json
+{
+  "type": "product.deleted",
+  "productId": "prod_abc123",
+  "productTitle": "Deleted Product",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+---
+
+## Handling Webhooks
+
+### Express.js
+
+```typescript
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+app.post('/webhooks/paygate', async (req, res) => {
+  const event = req.body;
+
+  // Log for debugging
+  console.log('Webhook received:', event.type);
+
+  switch (event.type) {
+    case 'payment.completed':
+      await handlePaymentCompleted(event);
+      break;
+
+    case 'feature.unlocked':
+      await handleFeatureUnlocked(event);
+      break;
+
+    case 'product.created':
+    case 'product.updated':
+    case 'product.deleted':
+      await handleProductEvent(event);
+      break;
+
+    default:
+      console.log('Unknown event type:', event.type);
+  }
+
+  // Always respond 200 to acknowledge
+  res.json({ received: true });
+});
+
+async function handlePaymentCompleted(event) {
+  // Grant access in your system
+  await db.access.create({
+    data: {
+      productId: event.productId,
+      walletAddress: event.walletAddress,
+      txHash: event.txHash,
+      amount: parseFloat(event.amount),
+      createdAt: new Date(event.timestamp)
+    }
+  });
+}
+
+async function handleFeatureUnlocked(event) {
+  // Store access token for user
+  await db.users.upsert({
+    where: { wallet: event.walletAddress },
+    update: {
+      accessToken: event.accessToken,
+      features: event.featureIds
+    },
+    create: {
+      wallet: event.walletAddress,
+      accessToken: event.accessToken,
+      features: event.featureIds
+    }
+  });
+}
+
+async function handleProductEvent(event) {
+  console.log(`Product ${event.productId}: ${event.type}`);
+}
+```
+
+### Verifying Webhooks
+
+To ensure webhooks are from PayGate, check the source IP or implement signature verification.
+
+---
+
+## Retry Policy
+
+Failed webhook deliveries are retried:
+
+| Attempt | Delay |
+|---------|-------|
+| 1 | Immediate |
+| 2 | 1 minute |
+| 3 | 5 minutes |
+| 4 | 30 minutes |
+| 5 | 2 hours |
+| 6 | 24 hours |
+
+After 6 failed attempts, the webhook is marked as failed.
+
+---
+
+## Testing
+
+Use the dashboard to send test webhooks:
+
+1. Go to **Webhooks**
+2. Click on your webhook
+3. Click **Send Test**
+4. Select event type
+5. Review the payload sent
+
+You can also use [webhook.site](https://webhook.site) for testing during development.

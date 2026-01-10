@@ -1,0 +1,279 @@
+---
+title: "Products"
+description: "Understanding PayGate product types"
+---
+
+## Product Types
+
+PayGate supports three product types:
+
+| Type | Description | Access Model |
+|------|-------------|--------------|
+| `content` | Digital content behind a paywall | One-time purchase |
+| `api_access` | API endpoints with per-request billing | Pay-per-use |
+| `feature_unlock` | Premium features in your app | Token-based access |
+
+## Content Products
+
+Ideal for monetizing digital content like articles, videos, or downloads.
+
+### Creating a Content Product
+
+```yaml
+Title: Premium Tutorial
+Description: Complete guide to building AI agents
+Type: content
+Price: 2.00 USDC
+Network: mainnet-beta
+Content URL: https://yoursite.com/premium-content
+```
+
+### How It Works
+
+1. User visits your paywalled content
+2. Redirected to PayGate payment page
+3. User pays with x402
+4. Redirected back to content (or receives access token)
+5. Webhook notifies your server
+
+### Integration
+
+```typescript
+// Middleware to check content access
+async function checkContentAccess(req, res, next) {
+  const { wallet } = req.query;
+
+  const response = await fetch(
+    'https://api-paygate.getaether.xyz/public/access/check',
+    {
+      method: 'POST',
+      headers: {
+        'X-API-Key': process.env.PAYGATE_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        productId: 'prod_content_123',
+        walletAddress: wallet
+      })
+    }
+  );
+
+  const { hasAccess } = await response.json();
+
+  if (hasAccess) {
+    next();
+  } else {
+    res.redirect(`https://paygate.getaether.xyz/pay/prod_content_123`);
+  }
+}
+```
+
+## API Products
+
+Monetize your APIs with per-request billing.
+
+### Creating an API Product
+
+```yaml
+Title: AI Translation API
+Description: Machine translation with GPT-4
+Type: api_access
+Price: 0.01 USDC (per request)
+Network: mainnet-beta
+Rate Limit: 100 requests/minute
+```
+
+### How It Works
+
+1. Client sends request with x402 payment header
+2. PayGate verifies and settles payment
+3. Your API processes the request
+4. Response returned to client
+
+### Integration
+
+```typescript
+import { X402FacilitatorServer } from 'aether-agent-sdk';
+
+const facilitator = new X402FacilitatorServer();
+
+app.post('/api/translate', async (req, res) => {
+  const paymentHeader = req.headers['x-payment'];
+
+  const requirements = {
+    scheme: 'exact',
+    network: process.env.SOLANA_NETWORK,
+    asset: process.env.USDC_MINT,
+    payTo: process.env.MERCHANT_WALLET,
+    maxAmountRequired: '10000', // 0.01 USDC
+    resource: '/api/translate',
+    maxTimeoutSeconds: 120
+  };
+
+  if (!paymentHeader) {
+    return res.status(402).json({
+      error: 'payment_required',
+      requirements
+    });
+  }
+
+  // Verify and settle
+  const verification = await facilitator.verify(paymentHeader, requirements);
+  if (!verification.isValid) {
+    return res.status(402).json({ error: verification.invalidReason });
+  }
+
+  const settlement = await facilitator.settle(paymentHeader, requirements);
+  if (!settlement.success) {
+    return res.status(500).json({ error: 'Settlement failed' });
+  }
+
+  // Process request
+  const result = await translateText(req.body.text, req.body.targetLang);
+
+  res.json({ result, txHash: settlement.txHash });
+});
+```
+
+## Feature Unlock Products
+
+Enable premium features with access tokens.
+
+### Creating a Feature Unlock Product
+
+```yaml
+Title: Pro Plan
+Description: Unlock all premium features
+Type: feature_unlock
+Price: 10.00 USDC
+Network: mainnet-beta
+Feature IDs:
+  - analytics_pro
+  - export_csv
+  - custom_themes
+  - api_access
+```
+
+### How It Works
+
+1. User purchases feature unlock
+2. PayGate generates access token (`ft_xxx...`)
+3. Token sent via webhook to your server
+4. User provides token to unlock features
+5. Your app verifies token via API
+
+### Access Token Format
+
+```
+ft_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0
+```
+
+### Integration
+
+```typescript
+// Webhook handler
+app.post('/api/paygate-webhook', async (req, res) => {
+  const { type, accessToken, featureIds, walletAddress } = req.body;
+
+  if (type === 'feature.unlocked') {
+    // Store token for user
+    await db.users.update({
+      where: { wallet: walletAddress },
+      data: {
+        accessToken,
+        features: featureIds
+      }
+    });
+  }
+
+  res.json({ received: true });
+});
+
+// Verify access in your app
+async function checkFeatureAccess(userToken, featureId) {
+  const response = await fetch(
+    'https://api-paygate.getaether.xyz/public/feature/verify',
+    {
+      method: 'POST',
+      headers: {
+        'X-API-Key': process.env.PAYGATE_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        accessToken: userToken
+      })
+    }
+  );
+
+  const { valid, features } = await response.json();
+
+  return valid && features.includes(featureId);
+}
+
+// Usage
+if (await checkFeatureAccess(user.accessToken, 'analytics_pro')) {
+  // Show pro analytics
+}
+```
+
+## Product Settings
+
+### Common Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Product name |
+| `description` | string | Product description |
+| `type` | enum | `content`, `api_access`, `feature_unlock` |
+| `price` | number | Price in USDC |
+| `network` | enum | `devnet`, `mainnet-beta` |
+| `status` | enum | `active`, `inactive` |
+
+### Type-Specific Fields
+
+#### Content
+| Field | Description |
+|-------|-------------|
+| `contentUrl` | URL to redirect after payment |
+| `downloadUrl` | Direct download link (optional) |
+
+#### API Access
+| Field | Description |
+|-------|-------------|
+| `rateLimit` | Requests per minute |
+| `endpoint` | Your API endpoint |
+
+#### Feature Unlock
+| Field | Description |
+|-------|-------------|
+| `featureIds` | List of feature identifiers |
+| `expiresIn` | Token expiration (optional) |
+
+## Managing Products
+
+### Update Product
+
+```typescript
+await fetch('https://api-paygate.getaether.xyz/products/prod_123', {
+  method: 'PUT',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    price: 1.50,
+    status: 'active'
+  })
+});
+```
+
+### Delete Product
+
+```typescript
+await fetch('https://api-paygate.getaether.xyz/products/prod_123', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+```

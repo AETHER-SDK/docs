@@ -1,0 +1,109 @@
+---
+title: "PayGate Introduction"
+description: "Accept crypto payments for your content and APIs"
+---
+
+## What is PayGate?
+
+PayGate is a payment gateway that enables developers to monetize their content, APIs, and features using the x402 payment protocol on Solana.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="x402 Payments" icon="credit-card">
+    Accept USDC payments via the x402 standard
+  </Card>
+  <Card title="Product Types" icon="box">
+    Content, API access, and feature unlocks
+  </Card>
+  <Card title="Webhooks" icon="webhook">
+    Real-time notifications for payments and events
+  </Card>
+  <Card title="Public API" icon="code">
+    Developer API for integration
+  </Card>
+</CardGroup>
+
+## Product Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **Content** | Paywall for digital content | Articles, videos, downloads |
+| **API** | Per-request API access | AI endpoints, data APIs |
+| **Feature Unlock** | One-time feature access | Premium features, upgrades |
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       PayGate Flow                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  1. Create Product                                           │
+│     └─► Define type, price, content                         │
+│                                                              │
+│  2. Integrate Paywall                                        │
+│     └─► Embed in your app/website                           │
+│                                                              │
+│  3. User Requests Access                                     │
+│     └─► Receives 402 Payment Required                       │
+│                                                              │
+│  4. User Pays via x402                                       │
+│     └─► Signs transaction with wallet                       │
+│                                                              │
+│  5. Payment Verified & Settled                               │
+│     └─► USDC transferred to your wallet                     │
+│                                                              │
+│  6. Access Granted                                           │
+│     └─► Content delivered or feature unlocked               │
+│                                                              │
+│  7. Webhook Sent                                             │
+│     └─► Your server notified of payment                     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Dashboard
+
+Access your dashboard at: [paygate.getaether.xyz](https://paygate.getaether.xyz)
+
+### Features
+
+- **Products** - Create and manage products
+- **Analytics** - View payment history and stats
+- **API Keys** - Generate keys for integration
+- **Webhooks** - Configure event notifications
+- **Settings** - Manage wallet and preferences
+
+## Pricing
+
+PayGate takes **0% commission** on payments. You receive 100% of what customers pay.
+
+| Fee Type | Amount |
+|----------|--------|
+| Platform Fee | 0% |
+| Solana TX Fee | ~$0.00025 |
+
+## Supported Networks
+
+| Network | Status |
+|---------|--------|
+| Solana Mainnet | Production |
+| Solana Devnet | Testing |
+
+## Getting Started
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/paygate/quickstart">
+    Create your first product in 5 minutes
+  </Card>
+  <Card title="Products" icon="box" href="/paygate/products">
+    Learn about product types
+  </Card>
+</CardGroup>
+
+## Links
+
+- **Dashboard**: [paygate.getaether.xyz](https://paygate.getaether.xyz)
+- **API**: [api-paygate.getaether.xyz](https://api-paygate.getaether.xyz)
+- **Support**: [@Aether_x402](https://t.me/Aether_x402)

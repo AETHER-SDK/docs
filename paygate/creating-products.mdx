@@ -1,0 +1,140 @@
+---
+title: "Creating Products"
+description: "Step-by-step guide to creating a PayGate product"
+---
+
+## Accessing the Form
+
+1. Log in to the [dashboard](https://paygate.getaether.xyz)
+2. Click on **Products** in the menu
+3. Click on **Create Product**
+
+<Frame>
+  <img src="/images/paygate/create-product.png" alt="Product creation form" />
+</Frame>
+
+## Product Types
+
+<CardGroup cols={3}>
+  <Card title="Content" icon="file-text">
+    Digital content (articles, videos, files)
+  </Card>
+  <Card title="API Access" icon="code">
+    API access with per-request billing
+  </Card>
+  <Card title="Feature Unlock" icon="unlock">
+    Premium feature unlocking
+  </Card>
+</CardGroup>
+
+## Form Fields
+
+### Basic Information
+
+| Field | Description | Required |
+|-------|-------------|----------|
+| **Title** | Product name | Yes |
+| **Description** | Detailed description | Yes |
+| **Type** | content, api_access, feature_unlock | Yes |
+| **Price** | Price in USDC | Yes |
+
+### Network Configuration
+
+| Field | Description |
+|-------|-------------|
+| **Network** | Devnet (test) or Mainnet (production) |
+
+<Warning>
+Devnet products use test USDC. Use Mainnet for real payments.
+</Warning>
+
+### Type-Specific Options
+
+#### Content
+- **Content URL** - URL to content after payment
+- **Download URL** - Direct download link (optional)
+
+#### API Access
+- **Rate Limit** - Requests per minute
+- **Endpoint** - Your API URL
+
+#### Feature Unlock
+- **Feature IDs** - List of features to unlock
+- **Expiration** - Validity period (optional)
+
+## Example: Creating a Paid Article
+
+```yaml
+Title: Complete Guide to Solana Development
+Description: Learn Solana development from A to Z
+Type: content
+Price: 2.00 USDC
+Network: mainnet-beta
+Content URL: https://mysite.com/solana-guide
+```
+
+## Example: Feature Unlock
+
+```yaml
+Title: Pro Plan
+Description: Access to all premium features
+Type: feature_unlock
+Price: 10.00 USDC
+Network: mainnet-beta
+Feature IDs:
+  - pro_analytics
+  - pro_export
+  - unlimited_storage
+```
+
+## After Creation
+
+Once created, you get:
+
+1. **Product ID** - Unique identifier (`prod_xxx`)
+2. **Payment URL** - Payment link to share
+3. **Embed Code** - Code to embed on your site
+
+### Payment URL
+
+```
+https://paygate.getaether.xyz/pay/prod_your_id
+```
+
+### Embed Code
+
+```html
+<a href="https://paygate.getaether.xyz/pay/prod_xxx">
+  Buy for 2.00 USDC
+</a>
+```
+
+## Managing Products
+
+### Edit a Product
+
+1. Go to **Products**
+2. Click on the product to edit
+3. Modify the desired fields
+4. Click **Save**
+
+### Deactivate a Product
+
+1. Go to **Products**
+2. Click on the product
+3. Change status to **Inactive**
+
+<Note>
+An inactive product cannot receive payments but remains visible in your history.
+</Note>
+
+### Delete a Product
+
+1. Go to **Products**
+2. Click on the product
+3. Click **Delete**
+4. Confirm deletion
+
+<Warning>
+Deletion is irreversible. Past payments remain in history.
+</Warning>

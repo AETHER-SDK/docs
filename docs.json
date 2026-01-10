@@ -1,68 +1,123 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Aether",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4F46E5"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "SDK",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "sdk/introduction",
+              "sdk/installation",
+              "sdk/quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "sdk/agents",
+              "sdk/protocols",
+              "sdk/payments"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Guides",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "sdk/a2a-communication",
+              "sdk/x402-payments",
+              "sdk/marketplace-integration"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Demo",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Examples",
             "pages": [
-              "api-reference/introduction"
+              "demo/introduction",
+              "demo/weather-agent",
+              "demo/marketplace-demo",
+              "demo/running-locally"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Marketplace",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "marketplace/introduction",
+              "marketplace/agents",
+              "marketplace/orders"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Integration",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "marketplace/payments",
+              "marketplace/a2a",
+              "marketplace/a2p"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "PayGate",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "paygate/introduction",
+              "paygate/quickstart",
+              "paygate/dashboard"
+            ]
+          },
+          {
+            "group": "Dashboard",
+            "pages": [
+              "paygate/creating-products",
+              "paygate/payment-page",
+              "paygate/my-purchases",
+              "paygate/analytics",
+              "paygate/transactions",
+              "paygate/network-switching"
+            ]
+          },
+          {
+            "group": "Developer",
+            "pages": [
+              "paygate/products",
+              "paygate/x402",
+              "paygate/api-keys",
+              "paygate/webhooks",
+              "paygate/feature-unlock"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "PayGate API",
+            "pages": [
+              "api-reference/paygate/introduction",
+              "api-reference/paygate/products",
+              "api-reference/paygate/features",
+              "api-reference/paygate/webhooks"
             ]
           }
         ]
@@ -71,52 +126,40 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "GitHub",
+          "href": "https://github.com/AETHER-SDK/aether-sdk",
+          "icon": "github"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Website",
+          "href": "https://www.getaether.xyz",
+          "icon": "globe"
         }
       ]
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo.png",
+    "dark": "/logo.png"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "mailto:support@getaether.xyz"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://paygate.getaether.xyz"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/Aether_x402",
+      "github": "https://github.com/AETHER-SDK/aether-sdk",
+      "telegram": "https://t.me/Aether_x402"
     }
   }
 }

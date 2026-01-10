@@ -1,0 +1,282 @@
+---
+title: "Webhooks"
+description: "Real-time event notifications"
+---
+
+## Overview
+
+Webhooks notify your server when events occur in PayGate, such as completed payments or feature unlocks.
+
+## Setting Up Webhooks
+
+1. Go to [paygate.getaether.xyz](https://paygate.getaether.xyz)
+2. Navigate to **Webhooks**
+3. Click **Add Webhook**
+4. Enter your endpoint URL
+5. Select events to receive
+6. Save
+
+## Webhook Events
+
+| Event | Description |
+|-------|-------------|
+| `payment.completed` | Payment successfully processed |
+| `feature.unlocked` | Feature unlock product purchased |
+| `access.verified` | Access token verified via API |
+| `product.created` | New product created |
+| `product.updated` | Product settings changed |
+| `product.deleted` | Product removed |
+
+## Payload Format
+
+### payment.completed
+
+```json
+{
+  "type": "payment.completed",
+  "productId": "prod_abc123xyz",
+  "productTitle": "Premium Article",
+  "walletAddress": "7xK3abc...",
+  "txHash": "5def789...",
+  "amount": "0.50",
+  "currency": "USDC",
+  "network": "mainnet-beta",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+### feature.unlocked
+
+```json
+{
+  "type": "feature.unlocked",
+  "productId": "prod_feature123",
+  "productTitle": "Pro Plan",
+  "accessToken": "ft_a1b2c3d4...",
+  "featureIds": ["analytics_pro", "export_csv"],
+  "walletAddress": "7xK3abc...",
+  "txHash": "5def789...",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+### product.created
+
+```json
+{
+  "type": "product.created",
+  "productId": "prod_new123",
+  "productTitle": "New Product",
+  "productType": "content",
+  "price": "1.00",
+  "currency": "USDC",
+  "status": "active",
+  "network": "mainnet-beta",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+## Handling Webhooks
+
+### Express.js Example
+
+```typescript
+import express from 'express';
+import crypto from 'crypto';
+
+const app = express();
+app.use(express.json());
+
+app.post('/api/paygate-webhook', async (req, res) => {
+  const payload = req.body;
+
+  console.log('Webhook received:', payload.type);
+
+  switch (payload.type) {
+    case 'payment.completed':
+      await handlePaymentCompleted(payload);
+      break;
+
+    case 'feature.unlocked':
+      await handleFeatureUnlocked(payload);
+      break;
+
+    case 'product.created':
+    case 'product.updated':
+    case 'product.deleted':
+      await handleProductChange(payload);
+      break;
+  }
+
+  // Always respond with 200 to acknowledge receipt
+  res.json({ received: true });
+});
+
+async function handlePaymentCompleted(payload) {
+  const { productId, walletAddress, txHash, amount } = payload;
+
+  // Grant access in your database
+  await db.access.create({
+    productId,
+    walletAddress,
+    txHash,
+    grantedAt: new Date()
+  });
+
+  // Send confirmation email/notification
+  await notifyUser(walletAddress, `Payment of ${amount} USDC confirmed!`);
+}
+
+async function handleFeatureUnlocked(payload) {
+  const { accessToken, featureIds, walletAddress } = payload;
+
+  // Store access token for user
+  await db.users.update({
+    where: { wallet: walletAddress },
+    data: {
+      accessToken,
+      features: featureIds,
+      upgradedAt: new Date()
+    }
+  });
+}
+
+async function handleProductChange(payload) {
+  // Sync product data with your system
+  console.log(`Product ${payload.productId} ${payload.type.split('.')[1]}`);
+}
+```
+
+### Next.js API Route
+
+```typescript
+// pages/api/paygate-webhook.ts
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const payload = req.body;
+
+  try {
+    switch (payload.type) {
+      case 'payment.completed':
+        // Handle payment
+        break;
+      case 'feature.unlocked':
+        // Handle feature unlock
+        break;
+    }
+
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).json({ error: 'Webhook processing failed' });
+  }
+}
+```
+
+## Testing Webhooks
+
+### Using the Dashboard
+
+1. Go to **Webhooks** in your dashboard
+2. Find your webhook
+3. Click **Test**
+4. Select event type
+5. Click **Send Test**
+
+### Using webhook.site
+
+For development:
+
+1. Go to [webhook.site](https://webhook.site)
+2. Copy your unique URL
+3. Add it as a webhook in PayGate
+4. Test events and see payloads
+
+## Retry Policy
+
+If your endpoint returns an error (non-2xx status), PayGate retries:
+
+| Attempt | Delay |
+|---------|-------|
+| 1st retry | 1 minute |
+| 2nd retry | 5 minutes |
+| 3rd retry | 30 minutes |
+| 4th retry | 2 hours |
+| 5th retry | 24 hours |
+
+After 5 failed attempts, the webhook is marked as failed.
+
+## Best Practices
+
+### Respond Quickly
+
+Return 200 immediately, process asynchronously:
+
+```typescript
+app.post('/webhook', async (req, res) => {
+  // Acknowledge immediately
+  res.json({ received: true });
+
+  // Process in background
+  processWebhookAsync(req.body).catch(console.error);
+});
+```
+
+### Idempotency
+
+Handle duplicate webhooks by checking `txHash`:
+
+```typescript
+async function handlePayment(payload) {
+  // Check if already processed
+  const existing = await db.payments.findUnique({
+    where: { txHash: payload.txHash }
+  });
+
+  if (existing) {
+    console.log('Already processed:', payload.txHash);
+    return;
+  }
+
+  // Process new payment
+  await db.payments.create({ data: payload });
+}
+```
+
+### Error Handling
+
+Log errors for debugging:
+
+```typescript
+app.post('/webhook', async (req, res) => {
+  try {
+    await processWebhook(req.body);
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Webhook error:', {
+      type: req.body.type,
+      error: error.message
+    });
+
+    // Still return 200 to prevent retries for known issues
+    res.json({ received: true, error: error.message });
+  }
+});
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Not receiving webhooks | Check endpoint URL, firewall rules |
+| Duplicate events | Implement idempotency with txHash |
+| Timeout errors | Respond within 30 seconds |
+| Parse errors | Ensure JSON body parsing is enabled |

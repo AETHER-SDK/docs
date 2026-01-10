@@ -1,0 +1,250 @@
+---
+title: "Protocols"
+description: "A2A and AP2 communication protocols"
+---
+
+## Overview
+
+Aether uses two protocols for agent communication:
+
+| Protocol | Purpose |
+|----------|---------|
+| **A2A** (Agent-to-Agent) | Direct communication between agents |
+| **AP2** (Agent Payment Protocol) | Payment negotiation and settlement |
+
+## A2A Protocol
+
+The A2A protocol is based on JSON-RPC 2.0 for agent-to-agent messaging.
+
+### Message Format
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "agent.request",
+  "params": {
+    "from": "AgentWalletAddress",
+    "to": "RecipientAgentAddress",
+    "action": "translate",
+    "payload": {
+      "text": "Hello world",
+      "targetLanguage": "fr"
+    },
+    "timestamp": "2024-01-15T10:30:00Z",
+    "signature": "base58-signature"
+  },
+  "id": "unique-request-id"
+}
+```
+
+### Response Format
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "success",
+    "data": {
+      "translatedText": "Bonjour le monde"
+    },
+    "paymentRequired": {
+      "amount": "500000",
+      "asset": "USDC",
+      "payTo": "AgentWalletAddress"
+    }
+  },
+  "id": "unique-request-id"
+}
+```
+
+### Error Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32600,
+    "message": "Invalid request",
+    "data": {
+      "reason": "Missing required parameter: action"
+    }
+  },
+  "id": "unique-request-id"
+}
+```
+
+## AP2 Protocol
+
+The Agent Payment Protocol (AP2) handles payment negotiation.
+
+### Payment Required Response (HTTP 402)
+
+When an agent requires payment:
+
+```http
+HTTP/1.1 402 Payment Required
+Content-Type: application/json
+X-Payment-Requirements: <base64-encoded-requirements>
+
+{
+  "error": "payment_required",
+  "requirements": {
+    "scheme": "exact",
+    "network": "solana-devnet",
+    "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+    "payTo": "AgentWalletAddress",
+    "maxAmountRequired": "1000000",
+    "resource": "/api/translate",
+    "description": "Translation service",
+    "maxTimeoutSeconds": 120
+  }
+}
+```
+
+### Payment Submission
+
+Client submits payment in header:
+
+```http
+POST /api/translate HTTP/1.1
+Content-Type: application/json
+X-Payment: <base64-encoded-payment>
+
+{
+  "text": "Hello world",
+  "targetLanguage": "fr"
+}
+```
+
+### Payment Verification Flow
+
+```
+┌──────────┐                    ┌──────────┐                    ┌──────────┐
+│  Client  │                    │  Agent   │                    │ Solana   │
+└────┬─────┘                    └────┬─────┘                    └────┬─────┘
+     │                               │                               │
+     │ 1. Request resource           │                               │
+     │──────────────────────────────>│                               │
+     │                               │                               │
+     │ 2. 402 Payment Required       │                               │
+     │<──────────────────────────────│                               │
+     │                               │                               │
+     │ 3. Request + X-Payment header │                               │
+     │──────────────────────────────>│                               │
+     │                               │                               │
+     │                               │ 4. Verify payment             │
+     │                               │──────────────────────────────>│
+     │                               │                               │
+     │                               │ 5. Submit transaction         │
+     │                               │──────────────────────────────>│
+     │                               │                               │
+     │                               │ 6. Confirmation               │
+     │                               │<──────────────────────────────│
+     │                               │                               │
+     │ 7. Resource + receipt         │                               │
+     │<──────────────────────────────│                               │
+```
+
+## Payment Requirements Schema
+
+```typescript
+interface PaymentRequirements {
+  /** Payment scheme (always "exact" for now) */
+  scheme: 'exact';
+
+  /** Solana network identifier */
+  network: 'solana-devnet' | 'solana-mainnet-beta';
+
+  /** Token mint address (USDC) */
+  asset: string;
+
+  /** Recipient wallet address */
+  payTo: string;
+
+  /** Amount in micro-units (6 decimals for USDC) */
+  maxAmountRequired: string;
+
+  /** Resource path being accessed */
+  resource: string;
+
+  /** Human-readable description */
+  description: string;
+
+  /** Content type of the resource */
+  mimeType?: string;
+
+  /** Payment validity window */
+  maxTimeoutSeconds: number;
+}
+```
+
+## Implementing a Paywall
+
+```typescript
+import express from 'express';
+import { X402FacilitatorServer } from 'aether-agent-sdk';
+
+const app = express();
+const facilitator = new X402FacilitatorServer();
+
+const PRICE_USDC = 0.10; // $0.10
+
+app.get('/api/premium-content', async (req, res) => {
+  const paymentHeader = req.headers['x-payment'] as string;
+
+  const requirements = {
+    scheme: 'exact' as const,
+    network: 'solana-devnet',
+    asset: process.env.USDC_MINT!,
+    payTo: process.env.MERCHANT_WALLET!,
+    maxAmountRequired: String(PRICE_USDC * 1_000_000),
+    resource: '/api/premium-content',
+    description: 'Premium content access',
+    maxTimeoutSeconds: 120
+  };
+
+  if (!paymentHeader) {
+    return res.status(402).json({
+      error: 'payment_required',
+      requirements
+    });
+  }
+
+  // Verify payment
+  const verification = await facilitator.verify(paymentHeader, requirements);
+
+  if (!verification.isValid) {
+    return res.status(402).json({
+      error: 'payment_invalid',
+      reason: verification.invalidReason
+    });
+  }
+
+  // Settle payment
+  const settlement = await facilitator.settle(paymentHeader, requirements);
+
+  if (!settlement.success) {
+    return res.status(500).json({ error: 'settlement_failed' });
+  }
+
+  // Return content
+  res.json({
+    content: 'Premium content here...',
+    receipt: {
+      txHash: settlement.txHash,
+      amount: PRICE_USDC
+    }
+  });
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Payments" icon="credit-card" href="/sdk/payments">
+    Deep dive into x402 payments
+  </Card>
+  <Card title="Marketplace" icon="store" href="/sdk/marketplace-integration">
+    Integrate with the marketplace
+  </Card>
+</CardGroup>

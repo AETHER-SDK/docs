@@ -1,0 +1,170 @@
+---
+title: "Agents"
+description: "Understanding the SettlementAgent class"
+---
+
+## SettlementAgent
+
+The `SettlementAgent` is the core class for creating agents that can send x402 payments on Solana.
+
+## Constructor
+
+```typescript
+const agent = new SettlementAgent(merchantWallet?: string);
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `merchantWallet` | `string` (optional) | Default recipient wallet for payments |
+
+If not provided, the agent looks for `MERCHANT_WALLET_ADDRESS` in environment variables.
+
+## Methods
+
+### init()
+
+Initialize the agent with a wallet.
+
+```typescript
+await agent.init(wallet?: Keypair);
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wallet` | `Keypair` (optional) | Solana keypair. If not provided, loads from env |
+
+**Example:**
+
+```typescript
+import { Keypair } from '@solana/web3.js';
+
+// Option 1: Load from environment
+const agent = new SettlementAgent();
+await agent.init();
+
+// Option 2: Provide keypair directly
+const keypair = Keypair.fromSecretKey(/* ... */);
+await agent.init(keypair);
+```
+
+### setMerchantWallet()
+
+Set the recipient wallet dynamically.
+
+```typescript
+agent.setMerchantWallet(merchantWallet: string);
+```
+
+Useful when your agent needs to pay different recipients:
+
+```typescript
+const agent = new SettlementAgent();
+await agent.init();
+
+// Pay first merchant
+agent.setMerchantWallet('Merchant1WalletAddress');
+await agent.triggerSettlement(verification);
+
+// Pay second merchant
+agent.setMerchantWallet('Merchant2WalletAddress');
+await agent.triggerSettlement(verification);
+```
+
+### createSignedPayment()
+
+Create a signed x402 payment that can be submitted by the recipient.
+
+```typescript
+const paymentHeader = await agent.createSignedPayment(
+  recipientAddress: string,
+  amountUsdc: number
+): Promise<string>;
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `recipientAddress` | `string` | Solana wallet address of recipient |
+| `amountUsdc` | `number` | Amount in USDC (e.g., 1.00 for $1) |
+
+**Returns:** Base64-encoded x402 payment header
+
+**Example:**
+
+```typescript
+const payment = await agent.createSignedPayment(
+  'RecipientWalletAddress',
+  0.50 // $0.50 USDC
+);
+
+// Send to recipient in HTTP header
+// X-Payment: <payment>
+```
+
+### triggerSettlement()
+
+Execute a settlement flow (internal use).
+
+```typescript
+await agent.triggerSettlement(verification: any);
+```
+
+## Payment Payload Structure
+
+The x402 payment header contains:
+
+```json
+{
+  "x402Version": 1,
+  "scheme": "exact",
+  "network": "solana-devnet",
+  "payload": {
+    "authorization": {
+      "from": "PayerWalletAddress",
+      "to": "RecipientWalletAddress",
+      "value": "1000000",
+      "asset": "USDCMintAddress",
+      "validBefore": 1704067200,
+      "nonce": "unique-nonce-value"
+    },
+    "signedTransaction": "base64-encoded-transaction",
+    "transactionMeta": {
+      "blockhash": "...",
+      "lastValidBlockHeight": 12345678
+    }
+  }
+}
+```
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SOLANA_NETWORK` | `devnet` or `mainnet-beta` | Yes |
+| `SOLANA_RPC_URL` | Custom RPC endpoint | No |
+| `AGENT_PRIVATE_KEY` | Base58 private key | Yes* |
+| `AGENT_WALLET_PATH` | Path to keypair JSON | Yes* |
+| `USDC_MINT` | USDC token mint address | No |
+| `MERCHANT_WALLET_ADDRESS` | Default recipient | No |
+
+*One of `AGENT_PRIVATE_KEY` or `AGENT_WALLET_PATH` is required.
+
+## Error Handling
+
+```typescript
+try {
+  const payment = await agent.createSignedPayment(recipient, amount);
+} catch (error) {
+  if (error.message.includes('Insufficient USDC')) {
+    console.log('Not enough USDC balance');
+  } else if (error.message.includes('wallet not initialized')) {
+    console.log('Agent wallet not configured');
+  }
+}
+```
+
+## Best Practices
+
+1. **Always initialize** - Call `init()` before any operations
+2. **Check balance** - Ensure sufficient USDC before creating payments
+3. **Handle expiration** - Payments expire after `maxTimeoutSeconds` (default: 120s)
+4. **Secure keys** - Never commit private keys to version control

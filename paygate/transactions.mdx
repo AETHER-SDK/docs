@@ -1,0 +1,142 @@
+---
+title: "Transactions"
+description: "View and manage your payment transactions"
+---
+
+## Overview
+
+The Transactions page displays all payments received for your products on PayGate.
+
+<Frame>
+  <img src="/images/paygate/transactions.png" alt="Transactions list" />
+</Frame>
+
+## Transaction List
+
+Each transaction shows:
+
+| Field | Description |
+|-------|-------------|
+| **Date** | Transaction timestamp |
+| **Product** | Product purchased |
+| **Amount** | Payment amount in USDC |
+| **Buyer** | Wallet address (truncated) |
+| **Status** | Transaction status |
+| **TX Hash** | Solana transaction hash |
+
+## Transaction Status
+
+| Status | Description |
+|--------|-------------|
+| **Confirmed** | Payment verified on blockchain |
+| **Pending** | Awaiting confirmation |
+| **Failed** | Transaction failed |
+
+## Viewing Transaction Details
+
+Click on any transaction to see:
+
+- Full transaction hash
+- Complete buyer wallet address
+- Product details
+- Timestamp (UTC)
+- Network (Devnet/Mainnet)
+- Solana Explorer link
+
+### Solana Explorer
+
+Click the TX hash to view the transaction on Solana Explorer:
+
+```
+https://explorer.solana.com/tx/{txHash}?cluster={network}
+```
+
+## Filtering Transactions
+
+### By Status
+
+- **All** - All transactions
+- **Confirmed** - Successful payments
+- **Pending** - Awaiting confirmation
+- **Failed** - Failed transactions
+
+### By Product
+
+Filter by specific product to see sales for that product only.
+
+### By Date Range
+
+- **Today** - Today's transactions
+- **Last 7 days** - Past week
+- **Last 30 days** - Past month
+- **Custom range** - Select start and end dates
+
+### By Network
+
+- **Devnet** - Test transactions
+- **Mainnet** - Real transactions
+
+## Searching Transactions
+
+Search by:
+
+- Transaction hash
+- Wallet address
+- Product name
+
+## Transaction Export
+
+Export transactions for accounting:
+
+1. Apply desired filters
+2. Click **Export**
+3. Download as CSV
+
+### Export Fields
+
+The CSV export includes:
+
+```csv
+date,product_id,product_name,amount,buyer_wallet,tx_hash,status,network
+```
+
+## Transaction Webhooks
+
+Configure webhooks to receive real-time notifications:
+
+```json
+{
+  "type": "payment.completed",
+  "txHash": "5abc...",
+  "productId": "prod_xxx",
+  "amount": "2.00",
+  "walletAddress": "7xK3...",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+See [Webhooks](/paygate/webhooks) for configuration details.
+
+## Common Questions
+
+### Why is my transaction pending?
+
+Transactions are usually confirmed within seconds. If pending for more than a minute:
+- Check Solana network status
+- Verify the transaction on Solana Explorer
+
+### Why did a transaction fail?
+
+Common reasons:
+- Insufficient USDC balance
+- Insufficient SOL for fees
+- Network congestion
+- User rejected the transaction
+
+### Can I refund a transaction?
+
+Blockchain transactions are irreversible. For refunds, you need to send a separate transaction to the buyer's wallet.
+
+<Note>
+Transactions on Devnet use test USDC and have no real value.
+</Note>

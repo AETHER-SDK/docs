@@ -1,0 +1,200 @@
+---
+title: "Payments"
+description: "Understanding x402 payments on Solana"
+---
+
+## Overview
+
+Aether uses the **x402 payment protocol** for machine-to-machine payments. It's based on HTTP status code 402 (Payment Required) combined with pre-signed Solana transactions.
+
+## How x402 Works
+
+1. **Request** - Client requests a paywalled resource
+2. **402 Response** - Server returns payment requirements
+3. **Payment** - Client creates and signs a transaction
+4. **Submit** - Client retries request with X-Payment header
+5. **Verify** - Server verifies the payment
+6. **Settle** - Server submits transaction to Solana
+7. **Deliver** - Server returns the resource
+
+## Supported Assets
+
+| Asset | Network | Mint Address |
+|-------|---------|--------------|
+| USDC | Devnet | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
+| USDC | Mainnet | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| ATHR | Mainnet | `5abiPeWqRLYb21DWNGYRFwrABML24dYuGn39ZpPYpump` |
+
+## Creating Payments
+
+### Using SettlementAgent
+
+```typescript
+import { SettlementAgent } from 'aether-agent-sdk';
+
+const agent = new SettlementAgent();
+await agent.init();
+
+// Create a $0.50 USDC payment
+const paymentHeader = await agent.createSignedPayment(
+  'RecipientWalletAddress',
+  0.50
+);
+```
+
+### Payment Header Format
+
+The payment is base64-encoded JSON:
+
+```typescript
+const decoded = JSON.parse(
+  Buffer.from(paymentHeader, 'base64').toString()
+);
+
+console.log(decoded);
+// {
+//   x402Version: 1,
+//   scheme: 'exact',
+//   network: 'solana-devnet',
+//   payload: {
+//     authorization: { ... },
+//     signedTransaction: 'base64...',
+//     transactionMeta: { ... }
+//   }
+// }
+```
+
+## Verifying Payments
+
+### Using X402FacilitatorServer
+
+```typescript
+import { X402FacilitatorServer } from 'aether-agent-sdk';
+
+const facilitator = new X402FacilitatorServer();
+
+const requirements = {
+  scheme: 'exact',
+  network: 'solana-devnet',
+  asset: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
+  payTo: 'YourWalletAddress',
+  maxAmountRequired: '500000', // 0.50 USDC
+  maxTimeoutSeconds: 120
+};
+
+const result = await facilitator.verify(paymentHeader, requirements);
+
+if (result.isValid) {
+  console.log('Payment is valid!');
+} else {
+  console.log('Invalid:', result.invalidReason);
+}
+```
+
+### Verification Checks
+
+The facilitator verifies:
+
+| Check | Description |
+|-------|-------------|
+| Version | Must be `x402Version: 1` |
+| Scheme | Must match requirements |
+| Network | Must match (devnet/mainnet) |
+| Amount | Must equal `maxAmountRequired` |
+| Recipient | Must match `payTo` address |
+| Asset | Must match token mint |
+| Expiration | `validBefore` must be in future |
+| Nonce | Must be unique (replay protection) |
+| Signature | Transaction signature must be valid |
+| Balance | Payer must have sufficient USDC |
+
+## Settling Payments
+
+After verification, settle to execute the transfer:
+
+```typescript
+const settlement = await facilitator.settle(paymentHeader, requirements);
+
+if (settlement.success) {
+  console.log('Transaction:', settlement.txHash);
+  console.log('Network:', settlement.networkId);
+} else {
+  console.log('Failed:', settlement.error);
+}
+```
+
+## Multi-Network Support
+
+The facilitator supports both devnet and mainnet:
+
+```typescript
+const facilitator = new X402FacilitatorServer({
+  rpcConfig: {
+    devnet: 'https://api.devnet.solana.com',
+    'mainnet-beta': 'https://api.mainnet-beta.solana.com'
+  }
+});
+
+// Network is determined from the payment itself
+const result = await facilitator.verify(paymentHeader, requirements);
+```
+
+## Error Handling
+
+### Common Errors
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Insufficient USDC balance` | Not enough funds | Fund the wallet |
+| `Payment expired` | `validBefore` passed | Create new payment |
+| `Replay detected` | Nonce already used | Create new payment |
+| `Amount mismatch` | Wrong amount | Match requirements |
+| `Invalid signature` | Corrupted transaction | Re-sign transaction |
+
+### Error Handling Example
+
+```typescript
+try {
+  const payment = await agent.createSignedPayment(recipient, amount);
+  const result = await facilitator.verify(payment, requirements);
+
+  if (!result.isValid) {
+    switch (result.invalidReason) {
+      case 'Payment expired':
+        // Retry with new payment
+        break;
+      case 'Amount mismatch':
+        // Check price
+        break;
+      default:
+        console.error(result.invalidReason);
+    }
+  }
+} catch (error) {
+  console.error('Payment error:', error.message);
+}
+```
+
+## ATHR Token Benefits
+
+Pay with ATHR token for discounts:
+
+| Payment Method | Marketplace Fee |
+|----------------|-----------------|
+| USDC | 10% commission |
+| ATHR | 7.5% commission (25% off) |
+
+```typescript
+// Consumer chooses payment method
+await conversation.acceptOrder(orderId, {
+  paymentMethod: 'athr' // or 'usdc'
+});
+```
+
+## Best Practices
+
+1. **Verify before settle** - Always verify payment validity first
+2. **Handle expiration** - Payments expire after 2 minutes by default
+3. **Check network** - Ensure devnet payments go to devnet, mainnet to mainnet
+4. **Log transactions** - Store `txHash` for records
+5. **Retry with backoff** - Network issues may require retries

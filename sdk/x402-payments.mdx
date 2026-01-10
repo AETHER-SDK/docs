@@ -1,0 +1,292 @@
+---
+title: "x402 Payments"
+description: "Deep dive into the x402 payment protocol"
+---
+
+## What is x402?
+
+x402 is a payment protocol for machine-to-machine transactions, inspired by HTTP status code 402 (Payment Required). It enables:
+
+- **Pre-signed transactions** - Payer signs offline, recipient submits
+- **Gasless for payer** - Recipient pays Solana fees
+- **Instant verification** - No blockchain wait for validation
+- **Replay protection** - Nonce-based security
+
+## Protocol Specification
+
+### HTTP Flow
+
+```http
+# 1. Initial request
+GET /api/premium-content HTTP/1.1
+Host: service.example.com
+
+# 2. Server response (payment required)
+HTTP/1.1 402 Payment Required
+Content-Type: application/json
+X-Payment-Requirements: eyJzY2hlbWUiOiJleGFjdCIs...
+
+{
+  "error": "payment_required",
+  "requirements": { ... }
+}
+
+# 3. Retry with payment
+GET /api/premium-content HTTP/1.1
+Host: service.example.com
+X-Payment: eyJ4NDAyVmVyc2lvbiI6MSws...
+
+# 4. Success response
+HTTP/1.1 200 OK
+X-Payment-Receipt: {"txHash": "5xK7...", "amount": "100000"}
+
+{ "content": "..." }
+```
+
+### Payment Requirements
+
+```typescript
+interface PaymentRequirements {
+  scheme: 'exact';           // Payment scheme
+  network: string;           // 'solana-devnet' | 'solana-mainnet-beta'
+  asset: string;             // Token mint address
+  payTo: string;             // Recipient wallet
+  maxAmountRequired: string; // Amount in micro-units
+  resource: string;          // Resource path
+  description: string;       // Human description
+  mimeType?: string;         // Content type
+  maxTimeoutSeconds: number; // Validity window
+}
+```
+
+### Payment Payload
+
+```typescript
+interface X402Payment {
+  x402Version: 1;
+  scheme: 'exact';
+  network: string;
+  payload: {
+    authorization: {
+      from: string;        // Payer wallet
+      to: string;          // Recipient wallet
+      value: string;       // Amount in micro-units
+      asset: string;       // Token mint
+      validBefore: number; // Unix timestamp
+      nonce: string;       // Unique identifier
+    };
+    signedTransaction: string;    // Base64 encoded
+    transactionMeta: {
+      blockhash: string;
+      lastValidBlockHeight: number;
+    };
+  };
+}
+```
+
+## Creating Payments
+
+### Step-by-Step
+
+```typescript
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  Keypair
+} from '@solana/web3.js';
+import { Token, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+
+async function createPayment(
+  payer: Keypair,
+  recipient: string,
+  amountUsdc: number
+): Promise<string> {
+  const connection = new Connection('https://api.devnet.solana.com');
+  const usdcMint = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
+  const amountMicro = Math.floor(amountUsdc * 1_000_000);
+
+  // Get token accounts
+  const token = new Token(connection, usdcMint, TOKEN_PROGRAM_ID, payer);
+  const fromAccount = await token.getOrCreateAssociatedAccountInfo(payer.publicKey);
+  const toAccount = await token.getOrCreateAssociatedAccountInfo(new PublicKey(recipient));
+
+  // Create transfer instruction
+  const instruction = Token.createTransferInstruction(
+    TOKEN_PROGRAM_ID,
+    fromAccount.address,
+    toAccount.address,
+    payer.publicKey,
+    [],
+    amountMicro
+  );
+
+  // Build transaction
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  const transaction = new Transaction().add(instruction);
+  transaction.recentBlockhash = blockhash;
+  transaction.lastValidBlockHeight = lastValidBlockHeight;
+  transaction.feePayer = payer.publicKey;
+
+  // Sign
+  transaction.sign(payer);
+
+  // Create x402 payload
+  const payload = {
+    x402Version: 1,
+    scheme: 'exact',
+    network: 'solana-devnet',
+    payload: {
+      authorization: {
+        from: payer.publicKey.toBase58(),
+        to: recipient,
+        value: amountMicro.toString(),
+        asset: usdcMint.toBase58(),
+        validBefore: Math.floor(Date.now() / 1000) + 120,
+        nonce: crypto.randomUUID()
+      },
+      signedTransaction: transaction.serialize().toString('base64'),
+      transactionMeta: { blockhash, lastValidBlockHeight }
+    }
+  };
+
+  return Buffer.from(JSON.stringify(payload)).toString('base64');
+}
+```
+
+### Using SettlementAgent (Recommended)
+
+```typescript
+import { SettlementAgent } from 'aether-agent-sdk';
+
+const agent = new SettlementAgent();
+await agent.init();
+
+const payment = await agent.createSignedPayment('Recipient', 1.00);
+```
+
+## Verifying Payments
+
+### Verification Steps
+
+```typescript
+import { X402FacilitatorServer } from 'aether-agent-sdk';
+
+const facilitator = new X402FacilitatorServer();
+
+async function handleRequest(req, res) {
+  const paymentHeader = req.headers['x-payment'];
+
+  const requirements = {
+    scheme: 'exact',
+    network: 'solana-devnet',
+    asset: process.env.USDC_MINT,
+    payTo: process.env.MERCHANT_WALLET,
+    maxAmountRequired: '100000', // 0.10 USDC
+    maxTimeoutSeconds: 120
+  };
+
+  if (!paymentHeader) {
+    return res.status(402).json({
+      error: 'payment_required',
+      requirements
+    });
+  }
+
+  // Verify
+  const verification = await facilitator.verify(paymentHeader, requirements);
+
+  if (!verification.isValid) {
+    return res.status(402).json({
+      error: 'payment_invalid',
+      reason: verification.invalidReason
+    });
+  }
+
+  // Settle
+  const result = await facilitator.settle(paymentHeader, requirements);
+
+  if (!result.success) {
+    return res.status(500).json({ error: result.error });
+  }
+
+  // Success!
+  res.setHeader('X-Payment-Receipt', JSON.stringify({
+    txHash: result.txHash,
+    amount: requirements.maxAmountRequired
+  }));
+
+  return res.json({ content: '...' });
+}
+```
+
+## Security Considerations
+
+### Replay Protection
+
+The facilitator tracks used nonces:
+
+```typescript
+// Each nonce can only be used once
+if (this.seenNonces.has(nonce)) {
+  return { isValid: false, reason: 'Replay detected' };
+}
+this.seenNonces.set(nonce, authorization.validBefore);
+```
+
+### Expiration
+
+Payments expire after `maxTimeoutSeconds`:
+
+```typescript
+const now = Math.floor(Date.now() / 1000);
+if (now > authorization.validBefore) {
+  return { isValid: false, reason: 'Payment expired' };
+}
+```
+
+### Transaction Validation
+
+The facilitator verifies the signed transaction matches the authorization:
+
+- Signature is valid
+- Transfer instruction exists
+- Amount matches
+- Destination matches
+- Token mint matches
+
+## Network Configuration
+
+### Multi-Network Facilitator
+
+```typescript
+const facilitator = new X402FacilitatorServer({
+  rpcConfig: {
+    devnet: process.env.DEVNET_RPC_URL,
+    'mainnet-beta': process.env.MAINNET_RPC_URL
+  }
+});
+
+// Automatically routes to correct network based on payment
+const result = await facilitator.verify(payment, requirements);
+```
+
+### Supported Networks
+
+```typescript
+const schemes = facilitator.getSupportedSchemes();
+// {
+//   kinds: [
+//     { scheme: 'exact', network: 'solana-devnet' },
+//     { scheme: 'exact', network: 'solana-mainnet-beta' }
+//   ]
+// }
+```
+
+## Best Practices
+
+1. **Always verify first** - Don't settle without verification
+2. **Use short timeouts** - 2 minutes is usually sufficient
+3. **Log transactions** - Store txHash for auditing
+4. **Handle failures gracefully** - Network issues can cause settlement failures
+5. **Validate amounts** - Ensure `maxAmountRequired` matches expected price

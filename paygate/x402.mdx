@@ -1,0 +1,218 @@
+---
+title: "x402 Protocol"
+description: "Understanding x402 payments in PayGate"
+---
+
+## Overview
+
+PayGate uses the x402 payment protocol for all transactions. This enables instant, verified payments on Solana.
+
+## How x402 Works with PayGate
+
+```
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│   Client    │         │   PayGate   │         │   Solana    │
+└──────┬──────┘         └──────┬──────┘         └──────┬──────┘
+       │                       │                       │
+       │ 1. Request product    │                       │
+       │──────────────────────>│                       │
+       │                       │                       │
+       │ 2. 402 + requirements │                       │
+       │<──────────────────────│                       │
+       │                       │                       │
+       │ 3. Sign transaction   │                       │
+       │ (wallet popup)        │                       │
+       │                       │                       │
+       │ 4. Submit X-Payment   │                       │
+       │──────────────────────>│                       │
+       │                       │                       │
+       │                       │ 5. Verify             │
+       │                       │──────────────────────>│
+       │                       │                       │
+       │                       │ 6. Submit TX          │
+       │                       │──────────────────────>│
+       │                       │                       │
+       │                       │ 7. Confirmation       │
+       │                       │<──────────────────────│
+       │                       │                       │
+       │ 8. Access granted     │                       │
+       │<──────────────────────│                       │
+       │                       │                       │
+       │                       │ 9. Webhook            │
+       │                       │──────────────────────>│
+```
+
+## Payment Requirements
+
+When a product requires payment, PayGate returns:
+
+```json
+{
+  "error": "payment_required",
+  "requirements": {
+    "scheme": "exact",
+    "network": "solana-mainnet-beta",
+    "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "payTo": "MerchantWalletAddress",
+    "maxAmountRequired": "500000",
+    "resource": "/pay/prod_abc123",
+    "description": "Premium Article - $0.50 USDC",
+    "maxTimeoutSeconds": 120
+  }
+}
+```
+
+## Payment Header
+
+The client creates a signed payment and submits it:
+
+```
+X-Payment: eyJ4NDAyVmVyc2lvbiI6MSw...
+```
+
+Decoded:
+
+```json
+{
+  "x402Version": 1,
+  "scheme": "exact",
+  "network": "solana-mainnet-beta",
+  "payload": {
+    "authorization": {
+      "from": "PayerWalletAddress",
+      "to": "MerchantWalletAddress",
+      "value": "500000",
+      "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "validBefore": 1704067200,
+      "nonce": "unique-nonce-123"
+    },
+    "signedTransaction": "base64-encoded-solana-tx",
+    "transactionMeta": {
+      "blockhash": "...",
+      "lastValidBlockHeight": 12345678
+    }
+  }
+}
+```
+
+## Verification Steps
+
+PayGate verifies:
+
+1. **Version** - Must be `x402Version: 1`
+2. **Scheme** - Must match `exact`
+3. **Network** - Must match product network
+4. **Amount** - Must equal product price
+5. **Recipient** - Must match merchant wallet
+6. **Asset** - Must be USDC
+7. **Expiration** - Must be in future
+8. **Nonce** - Must be unique (replay protection)
+9. **Signature** - Transaction must be validly signed
+10. **Balance** - Payer must have sufficient USDC
+
+## Settlement
+
+After verification, PayGate:
+
+1. Submits the pre-signed transaction to Solana
+2. Waits for confirmation
+3. Records the transaction hash
+4. Grants product access
+5. Sends webhook notification
+
+## Supported Networks
+
+| Network | USDC Mint |
+|---------|-----------|
+| Devnet | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
+| Mainnet | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+
+## Client Integration
+
+### Using PayGate Widget
+
+The easiest integration - PayGate handles everything:
+
+```html
+<script src="https://paygate.getaether.xyz/widget.js"></script>
+<button onclick="PayGate.pay('prod_abc123')">
+  Buy for $0.50
+</button>
+```
+
+### Custom Integration
+
+For full control:
+
+```typescript
+import { SettlementAgent } from 'aether-agent-sdk';
+
+async function payForProduct(productId: string) {
+  // 1. Get payment requirements
+  const reqResponse = await fetch(
+    `https://paygate.getaether.xyz/pay/${productId}`
+  );
+
+  if (reqResponse.status !== 402) {
+    // Already have access
+    return true;
+  }
+
+  const { requirements } = await reqResponse.json();
+
+  // 2. Create payment
+  const agent = new SettlementAgent();
+  await agent.init();
+
+  const payment = await agent.createSignedPayment(
+    requirements.payTo,
+    Number(requirements.maxAmountRequired) / 1_000_000
+  );
+
+  // 3. Submit payment
+  const payResponse = await fetch(
+    `https://paygate.getaether.xyz/pay/${productId}`,
+    {
+      headers: { 'X-Payment': payment }
+    }
+  );
+
+  if (payResponse.ok) {
+    const result = await payResponse.json();
+    console.log('Payment TX:', result.txHash);
+    return true;
+  }
+
+  return false;
+}
+```
+
+## Error Handling
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `payment_required` | No payment provided | Create and submit payment |
+| `payment_invalid` | Verification failed | Check error reason |
+| `payment_expired` | Transaction expired | Create new payment |
+| `insufficient_balance` | Not enough USDC | Fund wallet |
+| `settlement_failed` | Network error | Retry |
+
+## Security
+
+### For Merchants
+- Payments are verified on-chain before granting access
+- Funds go directly to your wallet
+- No chargebacks (blockchain is final)
+
+### For Customers
+- Transaction signed locally (private key never exposed)
+- Payment only valid for specific product
+- Expires after 2 minutes
+
+## Best Practices
+
+1. **Always verify** - Use webhooks to confirm payments
+2. **Handle failures** - Network issues can occur
+3. **Test on devnet** - Before going to mainnet
+4. **Monitor transactions** - Check Solana explorer
+5. **Secure API keys** - Never expose in frontend

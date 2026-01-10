@@ -1,0 +1,196 @@
+---
+title: "API Keys"
+description: "Authenticating with the PayGate API"
+---
+
+## Overview
+
+API keys allow you to interact with the PayGate Public API programmatically.
+
+## Creating API Keys
+
+1. Go to [paygate.getaether.xyz](https://paygate.getaether.xyz)
+2. Navigate to **Settings** → **API Keys**
+3. Click **Create API Key**
+4. Enter a label (e.g., "Production", "Development")
+5. Copy and securely store the key
+
+<Warning>
+API keys are shown only once. Store them securely - you cannot retrieve them later.
+</Warning>
+
+## Key Format
+
+```
+pk_0234decff71667369ce0c6de873cad2a4ce88e470ea4d8afda2704391bf34df8
+```
+
+- Prefix: `pk_` (public key)
+- Length: 64 hex characters
+- Unique per account
+
+## Using API Keys
+
+### Header Authentication
+
+Include the API key in the `X-API-Key` header:
+
+```bash
+curl -X GET "https://api-paygate.getaether.xyz/public/products" \
+  -H "X-API-Key: pk_your_api_key_here" \
+  -H "Content-Type: application/json"
+```
+
+### TypeScript Example
+
+```typescript
+const PAYGATE_API_KEY = process.env.PAYGATE_API_KEY;
+const BASE_URL = 'https://api-paygate.getaether.xyz';
+
+async function getProducts() {
+  const response = await fetch(`${BASE_URL}/public/products`, {
+    headers: {
+      'X-API-Key': PAYGATE_API_KEY,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  return response.json();
+}
+```
+
+## Available Endpoints
+
+With a valid API key, you can access:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/public/products` | GET | List all your products |
+| `/public/products/:id` | GET | Get specific product |
+| `/public/stats` | GET | Get payment statistics |
+| `/public/access/check` | POST | Check wallet access |
+| `/public/verify/:txHash` | GET | Verify transaction |
+| `/public/feature/verify` | POST | Verify access token |
+| `/public/feature/tokens` | GET | List access tokens |
+| `/public/feature/revoke` | POST | Revoke access token |
+
+## Rate Limits
+
+| Tier | Requests/min | Requests/day |
+|------|--------------|--------------|
+| Free | 60 | 10,000 |
+| Pro | 300 | 100,000 |
+
+Rate limit headers:
+
+```
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 59
+X-RateLimit-Reset: 1704067260
+```
+
+## Key Security
+
+### Best Practices
+
+1. **Never expose in frontend** - Only use on server-side
+2. **Use environment variables** - Don't hardcode keys
+3. **Rotate regularly** - Create new keys periodically
+4. **Limit scope** - Use separate keys for dev/prod
+5. **Monitor usage** - Check for unusual activity
+
+### Environment Variables
+
+```bash .env
+# Development
+PAYGATE_API_KEY_DEV=pk_dev_key_here
+
+# Production
+PAYGATE_API_KEY_PROD=pk_prod_key_here
+```
+
+```typescript
+const apiKey = process.env.NODE_ENV === 'production'
+  ? process.env.PAYGATE_API_KEY_PROD
+  : process.env.PAYGATE_API_KEY_DEV;
+```
+
+## Managing Keys
+
+### List Keys
+
+View all keys in **Settings** → **API Keys**. Shows:
+- Key prefix (first 12 characters)
+- Label
+- Created date
+- Last used
+
+### Revoke Keys
+
+1. Go to **Settings** → **API Keys**
+2. Find the key to revoke
+3. Click **Revoke**
+4. Confirm
+
+<Warning>
+Revoking a key immediately invalidates it. Any applications using that key will stop working.
+</Warning>
+
+## Error Responses
+
+### Invalid Key
+
+```json
+{
+  "error": "Invalid or expired API key",
+  "code": "INVALID_API_KEY"
+}
+```
+
+### Missing Key
+
+```json
+{
+  "error": "API key required",
+  "code": "MISSING_API_KEY"
+}
+```
+
+### Rate Limited
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "code": "RATE_LIMITED",
+  "retryAfter": 60
+}
+```
+
+## Testing
+
+### With cURL
+
+```bash
+# Test your API key
+curl -X GET "https://api-paygate.getaether.xyz/public/stats" \
+  -H "X-API-Key: pk_your_key" \
+  -H "Content-Type: application/json"
+```
+
+Expected response:
+
+```json
+{
+  "totalRevenue": 125.50,
+  "totalTransactions": 47,
+  "productCount": 5
+}
+```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| `Invalid API key` | Check for typos, ensure key is active |
+| `API key required` | Add `X-API-Key` header |
+| `Rate limited` | Wait and retry, or upgrade tier |

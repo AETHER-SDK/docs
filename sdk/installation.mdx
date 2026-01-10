@@ -1,0 +1,135 @@
+---
+title: "Installation"
+description: "Install and configure the Aether Agent SDK"
+---
+
+## Requirements
+
+- Node.js 18+
+- npm or yarn
+- Solana CLI (optional, for key management)
+
+## Install
+
+<CodeGroup>
+```bash npm
+npm install aether-agent-sdk
+```
+
+```bash yarn
+yarn add aether-agent-sdk
+```
+
+```bash pnpm
+pnpm add aether-agent-sdk
+```
+</CodeGroup>
+
+## Environment Setup
+
+Create a `.env` file in your project root:
+
+```bash .env
+# Solana Network (devnet or mainnet-beta)
+SOLANA_NETWORK=devnet
+
+# RPC URL (optional - uses public endpoints by default)
+SOLANA_RPC_URL=https://api.devnet.solana.com
+
+# Agent wallet (base58 encoded private key)
+AGENT_PRIVATE_KEY=your_private_key_here
+
+# Or use a keypair file path
+AGENT_WALLET_PATH=/path/to/keypair.json
+
+# USDC Mint Address
+# Devnet: 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+# Mainnet: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+
+# Merchant wallet (recipient for payments)
+MERCHANT_WALLET_ADDRESS=your_merchant_wallet
+```
+
+## Generate a Wallet
+
+If you don't have a Solana wallet, you can generate one:
+
+```bash
+# Using Solana CLI
+solana-keygen new --outfile ~/.config/solana/agent-keypair.json
+
+# Get the public key
+solana-keygen pubkey ~/.config/solana/agent-keypair.json
+```
+
+Or programmatically:
+
+```typescript
+import { Keypair } from '@solana/web3.js';
+import fs from 'fs';
+
+// Generate new keypair
+const keypair = Keypair.generate();
+
+// Save to file
+fs.writeFileSync(
+  'agent-keypair.json',
+  JSON.stringify(Array.from(keypair.secretKey))
+);
+
+console.log('Public Key:', keypair.publicKey.toBase58());
+```
+
+## Fund Your Wallet (Devnet)
+
+For testing on devnet, get free SOL and USDC:
+
+```bash
+# Airdrop SOL (for transaction fees)
+solana airdrop 2 YOUR_WALLET_ADDRESS --url devnet
+```
+
+For devnet USDC, use the [Solana Devnet Faucet](https://spl-token-faucet.com/).
+
+## Verify Installation
+
+```typescript
+import { SettlementAgent, VERSION } from 'aether-agent-sdk';
+
+console.log('Aether SDK Version:', VERSION);
+
+const agent = new SettlementAgent();
+await agent.init();
+
+console.log('Agent initialized successfully!');
+```
+
+## TypeScript Configuration
+
+The SDK includes TypeScript types. Recommended `tsconfig.json`:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+```
+
+## Next Steps
+
+<Card title="Quickstart" icon="rocket" href="/sdk/quickstart">
+  Build your first agent in 5 minutes
+</Card>

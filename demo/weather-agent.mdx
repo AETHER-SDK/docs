@@ -1,0 +1,199 @@
+---
+title: "Weather Agent"
+description: "Simple weather service agent example"
+---
+
+## Overview
+
+The Weather Agent is a simple example demonstrating how to create a service agent that provides weather information for a fee.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Weather Agent                         │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  1. Receive request (city name)                          │
+│  2. Return 402 Payment Required                          │
+│  3. Receive payment (X-Payment header)                   │
+│  4. Verify payment via X402Facilitator                   │
+│  5. Settle payment on Solana                             │
+│  6. Fetch weather data from API                          │
+│  7. Return weather information                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Implementation
+
+### Basic Weather Agent
+
+```typescript
+import express from 'express';
+import { X402FacilitatorServer } from 'aether-agent-sdk';
+import axios from 'axios';
+
+const app = express();
+const facilitator = new X402FacilitatorServer();
+
+const WEATHER_PRICE_USDC = 0.01; // $0.01 per request
+
+app.get('/weather/:city', async (req, res) => {
+  const { city } = req.params;
+  const paymentHeader = req.headers['x-payment'] as string;
+
+  // Payment requirements
+  const requirements = {
+    scheme: 'exact' as const,
+    network: process.env.SOLANA_NETWORK || 'solana-devnet',
+    asset: process.env.USDC_MINT!,
+    payTo: process.env.MERCHANT_WALLET!,
+    maxAmountRequired: String(WEATHER_PRICE_USDC * 1_000_000),
+    resource: `/weather/${city}`,
+    description: `Weather data for ${city}`,
+    maxTimeoutSeconds: 120
+  };
+
+  // No payment? Return 402
+  if (!paymentHeader) {
+    return res.status(402).json({
+      error: 'payment_required',
+      requirements,
+      message: `Weather data costs ${WEATHER_PRICE_USDC} USDC`
+    });
+  }
+
+  // Verify payment
+  const verification = await facilitator.verify(paymentHeader, requirements);
+
+  if (!verification.isValid) {
+    return res.status(402).json({
+      error: 'payment_invalid',
+      reason: verification.invalidReason
+    });
+  }
+
+  // Settle payment
+  const settlement = await facilitator.settle(paymentHeader, requirements);
+
+  if (!settlement.success) {
+    return res.status(500).json({
+      error: 'settlement_failed',
+      reason: settlement.error
+    });
+  }
+
+  // Fetch weather data
+  try {
+    const weather = await fetchWeather(city);
+
+    return res.json({
+      city,
+      weather,
+      receipt: {
+        txHash: settlement.txHash,
+        amount: WEATHER_PRICE_USDC
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to fetch weather' });
+  }
+});
+
+async function fetchWeather(city: string) {
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  const response = await axios.get(
+    `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${apiKey}&units=metric`
+  );
+
+  return {
+    temperature: response.data.main.temp,
+    description: response.data.weather[0].description,
+    humidity: response.data.main.humidity,
+    wind: response.data.wind.speed
+  };
+}
+
+app.listen(3000, () => {
+  console.log('Weather Agent running on port 3000');
+});
+```
+
+### Client Usage
+
+```typescript
+import { SettlementAgent } from 'aether-agent-sdk';
+import axios from 'axios';
+
+async function getWeather(city: string) {
+  const agent = new SettlementAgent();
+  await agent.init();
+
+  // First request - get payment requirements
+  try {
+    await axios.get(`http://localhost:3000/weather/${city}`);
+  } catch (error: any) {
+    if (error.response?.status === 402) {
+      const requirements = error.response.data.requirements;
+
+      // Create payment
+      const payment = await agent.createSignedPayment(
+        requirements.payTo,
+        Number(requirements.maxAmountRequired) / 1_000_000
+      );
+
+      // Retry with payment
+      const response = await axios.get(
+        `http://localhost:3000/weather/${city}`,
+        { headers: { 'X-Payment': payment } }
+      );
+
+      console.log('Weather:', response.data.weather);
+      console.log('Transaction:', response.data.receipt.txHash);
+    }
+  }
+}
+
+getWeather('Paris');
+```
+
+## Environment Variables
+
+```bash .env
+# Solana
+SOLANA_NETWORK=devnet
+USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+AGENT_PRIVATE_KEY=your_private_key
+MERCHANT_WALLET=your_wallet_address
+
+# Weather API
+OPENWEATHER_API_KEY=your_api_key
+```
+
+## Running
+
+```bash
+# Install dependencies
+npm install
+
+# Start the agent
+npm run start
+
+# Test with curl
+curl http://localhost:3000/weather/Paris
+# Returns 402 with payment requirements
+
+# Test with a paying client
+npm run client Paris
+```
+
+## Extending the Example
+
+Ideas for extending this demo:
+
+1. **Multiple cities** - Bulk pricing for multiple locations
+2. **Forecast data** - Higher price for extended forecasts
+3. **Historical data** - Premium pricing for historical weather
+4. **Subscriptions** - Implement subscription-based access
+5. **Caching** - Cache results and share revenue

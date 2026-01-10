@@ -1,0 +1,134 @@
+---
+title: "My Purchases"
+description: "Manage your purchases and access tokens"
+---
+
+## Accessing My Purchases
+
+1. Log in to the [dashboard](https://paygate.getaether.xyz)
+2. Click on **My Purchases** in the menu
+
+<Frame>
+  <img src="/images/paygate/my-purchases.png" alt="My Purchases page" />
+</Frame>
+
+## Overview
+
+The "My Purchases" page displays all products you've purchased with your connected wallet.
+
+## Displayed Information
+
+For each purchase:
+
+| Field | Description |
+|-------|-------------|
+| **Product** | Name of purchased product |
+| **Type** | Content, API Access, or Feature Unlock |
+| **Price** | Amount paid in USDC |
+| **Date** | Purchase date |
+| **Transaction** | Link to Solana explorer |
+| **Status** | Active, Expired |
+
+## Purchase Types
+
+### Content
+
+For content purchases:
+- Link to access content
+- Download button (if applicable)
+
+### Feature Unlock
+
+For unlocked features:
+- **Access Token** - Unique token to verify access
+- **Features** - List of unlocked features
+- **Expiration** - Expiration date (if applicable)
+
+```
+Token: ft_a1b2c3d4e5f6g7h8i9j0...
+```
+
+<Warning>
+Keep your access token confidential. It grants access to premium features.
+</Warning>
+
+### API Access
+
+For API access:
+- Access key or token
+- Request limits
+- API documentation
+
+## Using an Access Token
+
+### In an Application
+
+The application can verify your token via the PayGate API:
+
+```typescript
+// Application side
+const response = await fetch('/api/verify-access', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ accessToken: 'ft_your_token' })
+});
+
+const { valid, features } = await response.json();
+```
+
+### Copy the Token
+
+1. Find the purchase in the list
+2. Click the copy icon next to the token
+3. Paste it in the application
+
+## Filtering Purchases
+
+### By Type
+
+- **All** - All purchases
+- **Content** - Purchased content
+- **Feature Unlock** - Features
+- **API Access** - API access
+
+### By Status
+
+- **Active** - Valid access
+- **Expired** - Access ended
+
+### By Period
+
+- Last week
+- Last month
+- This year
+- All time
+
+## Verifying a Transaction
+
+Each purchase is linked to a Solana transaction. Click the hash to see:
+
+- On-chain confirmation
+- Transaction details
+- Exact timestamp
+- Fees paid
+
+## Common Issues
+
+### "I don't see my purchase"
+
+1. Check you're connected with the correct wallet
+2. Check the network (Devnet vs Mainnet)
+3. Wait a few seconds (blockchain propagation)
+
+### "My token doesn't work"
+
+1. Check that the token hasn't expired
+2. Copy the complete token (ft_...)
+3. Contact the product seller
+
+### "Access denied"
+
+Access may be denied if:
+- The token was revoked
+- The product was deactivated
+- The subscription expired

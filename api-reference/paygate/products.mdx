@@ -1,0 +1,148 @@
+---
+title: "Products API"
+description: "API endpoints for managing products"
+---
+
+## List Products
+
+Get all products for the authenticated user.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api-paygate.getaether.xyz/public/products" \
+  -H "X-API-Key: pk_your_api_key" \
+  -H "Content-Type: application/json"
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://api-paygate.getaether.xyz/public/products',
+  {
+    headers: {
+      'X-API-Key': process.env.PAYGATE_API_KEY,
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+const { products } = await response.json();
+```
+</CodeGroup>
+
+### Response
+
+```json
+{
+  "products": [
+    {
+      "id": "prod_abc123xyz",
+      "title": "Premium Article",
+      "description": "Exclusive content about...",
+      "type": "content",
+      "price": "0.50",
+      "currency": "USDC",
+      "network": "mainnet-beta",
+      "status": "active",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-15T10:30:00.000Z"
+    },
+    {
+      "id": "prod_def456uvw",
+      "title": "Pro Features",
+      "description": "Unlock all premium features",
+      "type": "feature_unlock",
+      "price": "10.00",
+      "currency": "USDC",
+      "network": "mainnet-beta",
+      "status": "active",
+      "featureIds": ["pro_analytics", "pro_export"],
+      "createdAt": "2024-01-14T09:00:00.000Z",
+      "updatedAt": "2024-01-14T09:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+## Get Product
+
+Get a specific product by ID.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://api-paygate.getaether.xyz/public/products/prod_abc123xyz" \
+  -H "X-API-Key: pk_your_api_key" \
+  -H "Content-Type: application/json"
+```
+
+```typescript TypeScript
+const response = await fetch(
+  `https://api-paygate.getaether.xyz/public/products/${productId}`,
+  {
+    headers: {
+      'X-API-Key': process.env.PAYGATE_API_KEY,
+      'Content-Type': 'application/json'
+    }
+  }
+);
+
+const product = await response.json();
+```
+</CodeGroup>
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | string | Product ID (path parameter) |
+
+### Response
+
+```json
+{
+  "id": "prod_abc123xyz",
+  "title": "Premium Article",
+  "description": "Exclusive content about...",
+  "type": "content",
+  "price": "0.50",
+  "currency": "USDC",
+  "network": "mainnet-beta",
+  "status": "active",
+  "merchantWallet": "7xK3abc...",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z",
+  "stats": {
+    "totalSales": 47,
+    "revenue": "23.50"
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Product not found",
+  "code": "NOT_FOUND"
+}
+```
+
+---
+
+## Product Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique product identifier |
+| `title` | string | Product name |
+| `description` | string | Product description |
+| `type` | enum | `content`, `api_access`, `feature_unlock` |
+| `price` | string | Price in USDC |
+| `currency` | string | Always `USDC` |
+| `network` | enum | `devnet`, `mainnet-beta` |
+| `status` | enum | `active`, `inactive` |
+| `merchantWallet` | string | Receiving wallet address |
+| `featureIds` | string[] | Feature IDs (for `feature_unlock` type) |
+| `createdAt` | string | ISO 8601 timestamp |
+| `updatedAt` | string | ISO 8601 timestamp |

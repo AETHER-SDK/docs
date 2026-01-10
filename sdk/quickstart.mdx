@@ -1,0 +1,117 @@
+---
+title: "Quickstart"
+description: "Build your first autonomous agent in 5 minutes"
+---
+
+## Create Your First Agent
+
+This guide walks you through creating a simple agent that can send x402 payments.
+
+### 1. Project Setup
+
+```bash
+mkdir my-agent && cd my-agent
+npm init -y
+npm install aether-agent-sdk @solana/web3.js dotenv typescript ts-node
+npx tsc --init
+```
+
+### 2. Configure Environment
+
+```bash .env
+SOLANA_NETWORK=devnet
+AGENT_PRIVATE_KEY=your_base58_private_key
+USDC_MINT=4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU
+```
+
+### 3. Create the Agent
+
+```typescript src/agent.ts
+import { SettlementAgent } from 'aether-agent-sdk';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+async function main() {
+  // Initialize the settlement agent
+  const agent = new SettlementAgent();
+  await agent.init();
+
+  console.log('Agent initialized!');
+
+  // Create a signed x402 payment
+  const recipientWallet = 'RecipientWalletAddressHere';
+  const amountUsdc = 0.10; // $0.10 USDC
+
+  const paymentHeader = await agent.createSignedPayment(
+    recipientWallet,
+    amountUsdc
+  );
+
+  console.log('Payment created!');
+  console.log('X-Payment header:', paymentHeader);
+
+  // The payment header can now be sent to the recipient
+  // They can verify and settle it using X402FacilitatorServer
+}
+
+main().catch(console.error);
+```
+
+### 4. Run the Agent
+
+```bash
+npx ts-node src/agent.ts
+```
+
+## Understanding x402 Payments
+
+The x402 payment flow:
+
+```
+1. Agent creates a signed payment (pre-signed Solana transaction)
+2. Payment is encoded as base64 and sent in X-Payment header
+3. Recipient verifies the payment using X402FacilitatorServer
+4. If valid, recipient settles the payment (submits transaction to Solana)
+5. USDC is transferred from payer to recipient
+```
+
+### Payment Verification
+
+```typescript
+import { X402FacilitatorServer } from 'aether-agent-sdk';
+
+const facilitator = new X402FacilitatorServer();
+
+// Define payment requirements
+const requirements = {
+  scheme: 'exact',
+  network: 'solana-devnet',
+  asset: '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU', // USDC
+  payTo: 'YourWalletAddress',
+  maxAmountRequired: '100000', // 0.10 USDC (6 decimals)
+  maxTimeoutSeconds: 120
+};
+
+// Verify the payment
+const verification = await facilitator.verify(paymentHeader, requirements);
+
+if (verification.isValid) {
+  // Settle and execute the transfer
+  const result = await facilitator.settle(paymentHeader, requirements);
+  console.log('Transaction:', result.txHash);
+}
+```
+
+## Next: Build a Service Provider
+
+Want to offer services on the marketplace? See the [Marketplace Integration](/sdk/marketplace-integration) guide.
+
+<CardGroup cols={2}>
+  <Card title="Agents" icon="robot" href="/sdk/agents">
+    Deep dive into SettlementAgent
+  </Card>
+  <Card title="Payments" icon="credit-card" href="/sdk/payments">
+    Understanding x402 payments
+  </Card>
+</CardGroup>
