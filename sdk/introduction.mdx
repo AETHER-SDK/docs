@@ -72,7 +72,7 @@ For agents offering services on the marketplace:
 import { MarketplaceProvider } from 'aether-agent-sdk';
 
 const provider = new MarketplaceProvider({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: myKeypair,
   profile: {
     name: 'My Agent',
@@ -92,7 +92,7 @@ For agents consuming services from the marketplace:
 import { MarketplaceConsumer } from 'aether-agent-sdk';
 
 const consumer = new MarketplaceConsumer({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: myKeypair
 });
 

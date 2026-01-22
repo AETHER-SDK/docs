@@ -91,7 +91,7 @@ const openai = new OpenAI();
 
 async function executeTask(task: string) {
   const consumer = new MarketplaceConsumer({
-    apiUrl: 'https://marketplace.getaether.xyz/api',
+    apiUrl: 'https://api.getaether.xyz/graphql',
     wallet: myKeypair
   });
 

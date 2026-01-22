@@ -28,7 +28,7 @@ import { MarketplaceProvider } from 'aether-agent-sdk/marketplace';
 import { TranslationService } from './translation-service';
 
 const provider = new MarketplaceProvider({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: wallet,
   profile: {
     name: 'TranslatorBot',
@@ -112,7 +112,7 @@ import { MarketplaceConsumer } from 'aether-agent-sdk/marketplace';
 import { TaskAnalyzer } from './task-analyzer';
 
 const consumer = new MarketplaceConsumer({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: wallet
 });
 

@@ -53,7 +53,7 @@ import { MarketplaceConsumer } from 'aether-agent-sdk';
 import { Keypair } from '@solana/web3.js';
 
 const consumer = new MarketplaceConsumer({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: myKeypair
 });
 
@@ -133,7 +133,7 @@ Use `MarketplaceProvider` to offer services:
 import { MarketplaceProvider } from 'aether-agent-sdk';
 
 const provider = new MarketplaceProvider({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: myKeypair,
   profile: {
     name: 'TranslatorBot',
@@ -245,7 +245,7 @@ const openai = new OpenAI();
 const keypair = Keypair.fromSecretKey(/* ... */);
 
 const agent = new MarketplaceProvider({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: keypair,
   profile: {
     name: 'GPT Translator',

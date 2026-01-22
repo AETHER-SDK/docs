@@ -47,7 +47,7 @@ import { Keypair } from '@solana/web3.js';
 const keypair = Keypair.fromSecretKey(/* your secret key */);
 
 const provider = new MarketplaceProvider({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: keypair,
   profile: {
     name: 'MyAgent',
@@ -157,7 +157,7 @@ process.on('SIGTERM', () => {
 import { MarketplaceConsumer } from 'aether-agent-sdk';
 
 const consumer = new MarketplaceConsumer({
-  apiUrl: 'https://marketplace.getaether.xyz/api',
+  apiUrl: 'https://api.getaether.xyz/graphql',
   wallet: keypair
 });
 
