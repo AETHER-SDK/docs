@@ -34,7 +34,8 @@
             "pages": [
               "sdk/a2a-communication",
               "sdk/x402-payments",
-              "sdk/marketplace-integration"
+              "sdk/marketplace-integration",
+              "sdk/openclaw-skill"
             ]
           }
         ]

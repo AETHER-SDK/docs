@@ -5,7 +5,14 @@ description: "Understanding the SettlementAgent class"
 
 ## SettlementAgent
 
-The `SettlementAgent` is the core class for creating agents that can send x402 payments on Solana.
+The `SettlementAgent` is the core class for creating agents that can send x402 payments on Solana. It supports both **USDC** and **ATHR** tokens.
+
+## Supported Tokens
+
+| Token | Mint Address (Mainnet) | Decimals | Description |
+|-------|------------------------|----------|-------------|
+| **ATHR** | `5abiPeWqRLYb21DWNGYRFwrABML24dYuGn39ZpPYpump` | 6 | Native Aether token |
+| **USDC** | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` | 6 | USD Coin stablecoin |
 
 ## Constructor
 
@@ -72,28 +79,50 @@ await agent.triggerSettlement(verification);
 
 ### createSignedPayment()
 
-Create a signed x402 payment that can be submitted by the recipient.
+Create a signed x402 payment that can be submitted by the recipient. Supports both **ATHR** and **USDC** tokens.
 
 ```typescript
 const paymentHeader = await agent.createSignedPayment(
   recipientAddress: string,
-  amountUsdc: number
+  amount: number,
+  options?: PaymentOptions
 ): Promise<string>;
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `recipientAddress` | `string` | Solana wallet address of recipient |
-| `amountUsdc` | `number` | Amount in USDC (e.g., 1.00 for $1) |
+| `amount` | `number` | Amount in tokens (e.g., 1.00 for 1 token) |
+| `options` | `PaymentOptions` (optional) | Payment options including token type |
+
+#### PaymentOptions
+
+```typescript
+interface PaymentOptions {
+  token?: 'athr' | 'usdc';  // Default: 'usdc'
+}
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `token` | `'athr' \| 'usdc'` | `'usdc'` | Token to use for payment |
 
 **Returns:** Base64-encoded x402 payment header
 
-**Example:**
+**Examples:**
 
 ```typescript
-const payment = await agent.createSignedPayment(
+// Pay with USDC (default)
+const usdcPayment = await agent.createSignedPayment(
   'RecipientWalletAddress',
-  0.50 // $0.50 USDC
+  0.50 // 0.50 USDC
+);
+
+// Pay with ATHR
+const athrPayment = await agent.createSignedPayment(
+  'RecipientWalletAddress',
+  100, // 100 ATHR
+  { token: 'athr' }
 );
 
 // Send to recipient in HTTP header
@@ -108,6 +137,30 @@ Execute a settlement flow (internal use).
 await agent.triggerSettlement(verification: any);
 ```
 
+## Token Utilities
+
+The SDK exports utility functions for working with tokens:
+
+```typescript
+import {
+  getTokenMint,
+  getTokenMintPublicKey,
+  tokenToAmount,
+  amountToToken,
+  ATHR_MINT_MAINNET,
+  USDC_MINT_MAINNET,
+  TOKEN_DECIMALS
+} from 'aether-agent-sdk';
+
+// Get mint address for a token
+const athrMint = getTokenMint('athr', true);  // mainnet
+const usdcMint = getTokenMint('usdc', false); // devnet
+
+// Convert amounts
+const microAmount = tokenToAmount(1.5);  // 1500000
+const tokenAmount = amountToToken(1500000); // 1.5
+```
+
 ## Payment Payload Structure
 
 The x402 payment header contains:
@@ -116,13 +169,13 @@ The x402 payment header contains:
 {
   "x402Version": 1,
   "scheme": "exact",
-  "network": "solana-devnet",
+  "network": "solana-mainnet-beta",
   "payload": {
     "authorization": {
       "from": "PayerWalletAddress",
       "to": "RecipientWalletAddress",
       "value": "1000000",
-      "asset": "USDCMintAddress",
+      "asset": "5abiPeWqRLYb21DWNGYRFwrABML24dYuGn39ZpPYpump",
       "validBefore": 1704067200,
       "nonce": "unique-nonce-value"
     },
@@ -135,6 +188,8 @@ The x402 payment header contains:
 }
 ```
 
+The `asset` field contains the token mint address (ATHR or USDC).
+
 ## Environment Variables
 
 | Variable | Description | Required |
@@ -143,6 +198,7 @@ The x402 payment header contains:
 | `SOLANA_RPC_URL` | Custom RPC endpoint | No |
 | `AGENT_PRIVATE_KEY` | Base58 private key | Yes* |
 | `AGENT_WALLET_PATH` | Path to keypair JSON | Yes* |
+| `ATHR_MINT` | ATHR token mint address | No |
 | `USDC_MINT` | USDC token mint address | No |
 | `MERCHANT_WALLET_ADDRESS` | Default recipient | No |
 
@@ -152,10 +208,10 @@ The x402 payment header contains:
 
 ```typescript
 try {
-  const payment = await agent.createSignedPayment(recipient, amount);
+  const payment = await agent.createSignedPayment(recipient, amount, { token: 'athr' });
 } catch (error) {
-  if (error.message.includes('Insufficient USDC')) {
-    console.log('Not enough USDC balance');
+  if (error.message.includes('Insufficient')) {
+    console.log('Not enough token balance');
   } else if (error.message.includes('wallet not initialized')) {
     console.log('Agent wallet not configured');
   }
@@ -165,6 +221,7 @@ try {
 ## Best Practices
 
 1. **Always initialize** - Call `init()` before any operations
-2. **Check balance** - Ensure sufficient USDC before creating payments
-3. **Handle expiration** - Payments expire after `maxTimeoutSeconds` (default: 120s)
+2. **Check balance** - Ensure sufficient token balance before creating payments
+3. **Handle expiration** - Payments expire after `maxTimeoutSeconds` (default: 300s)
 4. **Secure keys** - Never commit private keys to version control
+5. **Use ATHR for lower fees** - ATHR payments have lower marketplace fees than USDC
