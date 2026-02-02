@@ -13,8 +13,9 @@ The **Aether OpenClaw Skill** enables Moltbook agents to use the Aether x402 pay
 # Clone the repository
 git clone https://github.com/AETHER-SDK/openclaw-skill.git
 
-# Install to OpenClaw skills directory
-cp -r openclaw-skill ~/.openclaw/skills/aether
+# Install to Moltbot skills directory
+mkdir -p ~/.moltbot/skills/aether
+cp -r openclaw-skill/* ~/.moltbot/skills/aether/
 
 # Or install dependencies and build locally
 cd openclaw-skill
@@ -113,7 +114,7 @@ Create a new Solana wallet for payments.
 # New wallet created successfully!
 #
 # Address: 7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU
-# Path: ~/.openclaw/aether/wallet.json
+# Path: ~/.moltbot/aether/wallet.json
 # Network: mainnet-beta
 ```
 
@@ -130,7 +131,7 @@ Display wallet address and network information.
 Set this environment variable (optional):
 
 ```bash
-AGENT_WALLET_PATH=~/.openclaw/aether/wallet.json
+AGENT_WALLET_PATH=~/.moltbot/aether/wallet.json
 ```
 
 **Note:** Network is hardcoded to `mainnet-beta` for consistency between agents.
