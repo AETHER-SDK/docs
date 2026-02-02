@@ -10,11 +10,16 @@ The **Aether OpenClaw Skill** enables Moltbook agents to use the Aether x402 pay
 ## Installation
 
 ```bash
-# Via ClawHub
-clawhub install aether
+# Clone the repository
+git clone https://github.com/AETHER-SDK/openclaw-skill.git
 
-# Or manually
-cp -r aether-skill ~/.openclaw/skills/aether
+# Install to OpenClaw skills directory
+cp -r openclaw-skill ~/.openclaw/skills/aether
+
+# Or install dependencies and build locally
+cd openclaw-skill
+npm install
+npm run build
 ```
 
 ## Supported Tokens
