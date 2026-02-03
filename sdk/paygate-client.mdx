@@ -1,0 +1,316 @@
+---
+title: "PayGate Client"
+description: "Purchase x402-protected content from PayGate"
+---
+
+## Overview
+
+The `PayGateClient` allows agents to programmatically purchase and retrieve content protected by PayGate's x402 paywall. It handles the complete payment flow: fetching requirements, signing transactions, and retrieving purchased content.
+
+## Installation
+
+```bash
+npm install aether-agent-sdk
+```
+
+## Quick Start
+
+```typescript
+import { PayGateClient } from 'aether-agent-sdk/paygate';
+
+const client = new PayGateClient({
+  baseUrl: 'https://paygate.getaether.xyz'
+});
+
+await client.init();
+
+// Purchase a product
+const result = await client.purchase('product-123', { currency: 'ATHR' });
+console.log(`TX: ${result.transactionHash}`);
+
+// Retrieve content
+const content = await client.getContent('product-123');
+console.log(`Download: ${content.downloadUrl}`);
+```
+
+## Configuration
+
+```typescript
+interface PayGateClientConfig {
+  baseUrl: string;              // PayGate server URL
+  wallet?: Keypair;             // Optional wallet for signing
+  defaultCurrency?: 'USDC' | 'ATHR';  // Default payment currency
+  timeout?: number;             // Request timeout in ms (default: 30000)
+}
+```
+
+### Environment Variables
+
+The client can load wallet credentials from environment:
+
+```env
+AGENT_WALLET_PATH=./wallet.json
+# or
+AGENT_PRIVATE_KEY=base58_encoded_key
+# or
+SOLANA_WALLET=[1,2,3,...]
+```
+
+## Methods
+
+### init()
+
+Initialize the client with a wallet for signing payments.
+
+```typescript
+// Load from environment
+await client.init();
+
+// Or provide explicit wallet
+import { Keypair } from '@solana/web3.js';
+const wallet = Keypair.generate();
+await client.init(wallet);
+```
+
+### fetchProduct()
+
+Get product information.
+
+```typescript
+const product = await client.fetchProduct('product-123');
+
+console.log(product);
+// {
+//   id: 'product-123',
+//   title: 'Premium Tutorial',
+//   description: 'Advanced video course',
+//   type: 'content_link',
+//   price: '5000000',  // 5 USDC in micro units
+//   currency: 'USDC',
+//   network: 'solana-mainnet-beta',
+//   status: 'active'
+// }
+```
+
+### getPricing()
+
+Get pricing options for different currencies.
+
+```typescript
+const pricing = await client.getPricing('product-123');
+
+console.log(pricing);
+// {
+//   productId: 'product-123',
+//   options: [
+//     { currency: 'USDC', amount: '5000000', tokenMint: 'EPjF...' },
+//     { currency: 'ATHR', amount: '2000000', tokenMint: '5abi...', discount: 60 }
+//   ]
+// }
+```
+
+<Note>
+ATHR payments typically have a 60% discount on platform fees compared to USDC.
+</Note>
+
+### purchase()
+
+Execute the complete x402 purchase flow.
+
+```typescript
+const result = await client.purchase('product-123', {
+  currency: 'ATHR'  // Optional, defaults to configured currency
+});
+
+console.log(result);
+// {
+//   transactionHash: '5xYz...',
+//   productId: 'product-123',
+//   amount: '2000000',
+//   currency: 'ATHR',
+//   deliveryUrl: 'https://paygate.getaether.xyz/deliver/product-123'
+// }
+```
+
+#### Purchase Flow
+
+The `purchase()` method handles the complete x402 flow:
+
+```
+1. GET /pay/:productId     → 402 + payment requirements
+2. POST /x402/verify       → validate payment details
+3. SettlementAgent.createSignedPayment() → sign transaction
+4. POST /x402/settle       → submit payment, get delivery URL
+```
+
+### getContent()
+
+Retrieve content for a purchased product.
+
+```typescript
+const content = await client.getContent('product-123');
+
+console.log(content);
+// {
+//   product: { id: 'product-123', title: 'Premium Tutorial', type: 'content_link' },
+//   downloadUrl: 'https://cdn.paygate.xyz/files/abc123',
+//   accessToken: 'eyJhbG...',
+//   purchaseDate: '2025-02-03T12:00:00Z'
+// }
+```
+
+### getPurchaseHistory()
+
+Get all purchases for the current wallet.
+
+```typescript
+const history = await client.getPurchaseHistory();
+
+console.log(history);
+// {
+//   wallet: 'ABC123...',
+//   purchases: [
+//     {
+//       productId: 'product-123',
+//       title: 'Premium Tutorial',
+//       type: 'content_link',
+//       amount: '2000000',
+//       currency: 'ATHR',
+//       transactionHash: '5xYz...',
+//       purchaseDate: '2025-02-03T12:00:00Z',
+//       status: 'completed'
+//     }
+//   ],
+//   total: 1
+// }
+```
+
+### hasPurchased()
+
+Check if a product was already purchased.
+
+```typescript
+if (await client.hasPurchased('product-123')) {
+  // Already purchased, just get content
+  const content = await client.getContent('product-123');
+} else {
+  // Need to purchase first
+  await client.purchase('product-123');
+}
+```
+
+## Error Handling
+
+```typescript
+import { PayGateClient, PayGateError } from 'aether-agent-sdk/paygate';
+
+try {
+  const result = await client.purchase('product-123');
+} catch (error) {
+  if (error instanceof PayGateError) {
+    console.error(`PayGate error: ${error.message}`);
+    console.error(`HTTP status: ${error.statusCode}`);
+
+    switch (error.statusCode) {
+      case 402:
+        console.log('Payment required');
+        break;
+      case 404:
+        console.log('Product not found');
+        break;
+      case 403:
+        console.log('Access denied');
+        break;
+    }
+  }
+}
+```
+
+## Complete Example
+
+An autonomous agent that purchases and processes content:
+
+```typescript
+import { PayGateClient } from 'aether-agent-sdk/paygate';
+
+async function processPaywallContent(productId: string) {
+  const client = new PayGateClient({
+    baseUrl: 'https://paygate.getaether.xyz',
+    defaultCurrency: 'ATHR'  // Save on fees
+  });
+
+  await client.init();
+
+  // Check product details
+  const product = await client.fetchProduct(productId);
+  console.log(`Product: ${product.title}`);
+  console.log(`Price: ${Number(product.price) / 1_000_000} ${product.currency}`);
+
+  // Check if already purchased
+  if (await client.hasPurchased(productId)) {
+    console.log('Already purchased, retrieving content...');
+  } else {
+    // Check pricing options
+    const pricing = await client.getPricing(productId);
+    const athrOption = pricing.options.find(o => o.currency === 'ATHR');
+
+    if (athrOption?.discount) {
+      console.log(`ATHR discount: ${athrOption.discount}% off!`);
+    }
+
+    // Purchase
+    console.log('Purchasing...');
+    const result = await client.purchase(productId);
+    console.log(`TX: ${result.transactionHash}`);
+  }
+
+  // Get content
+  const content = await client.getContent(productId);
+
+  if (content.downloadUrl) {
+    console.log(`Download: ${content.downloadUrl}`);
+    // Process the content...
+  }
+
+  return content;
+}
+
+// Usage
+processPaywallContent('tutorial-video-001');
+```
+
+## Product Types
+
+PayGate supports different product types:
+
+| Type | Description |
+|------|-------------|
+| `content_link` | Files, documents, videos |
+| `api_proxy` | Pay-per-call API access |
+| `feature_unlock` | SaaS feature unlocks |
+| `iot_endpoint` | IoT/hardware triggers |
+
+## Best Practices
+
+1. **Check before purchase** - Use `hasPurchased()` to avoid duplicate payments
+2. **Use ATHR** - Get up to 60% discount on platform fees
+3. **Handle errors** - Catch `PayGateError` for proper error handling
+4. **Store receipts** - Keep `transactionHash` for records
+5. **Initialize once** - Reuse client instance for multiple operations
+
+## TypeScript Types
+
+All types are exported:
+
+```typescript
+import type {
+  PayGateClientConfig,
+  Product,
+  PaymentRequirements,
+  PricingResponse,
+  PurchaseOptions,
+  PurchaseResult,
+  ContentResult,
+  PurchaseHistoryResponse
+} from 'aether-agent-sdk/paygate';
+```

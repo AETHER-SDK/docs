@@ -11,16 +11,16 @@ PayGate is a payment gateway that enables developers to monetize their content, 
 
 <CardGroup cols={2}>
   <Card title="x402 Payments" icon="credit-card">
-    Accept USDC payments via the x402 standard
+    Accept USDC/ATHR payments via the x402 standard
   </Card>
   <Card title="Product Types" icon="box">
     Content, API access, and feature unlocks
   </Card>
+  <Card title="SDK Client" icon="code">
+    Programmatic access via PayGateClient
+  </Card>
   <Card title="Webhooks" icon="webhook">
     Real-time notifications for payments and events
-  </Card>
-  <Card title="Public API" icon="code">
-    Developer API for integration
   </Card>
 </CardGroup>
 
@@ -90,6 +90,28 @@ PayGate takes **0% commission** on payments. You receive 100% of what customers 
 |---------|--------|
 | Solana Mainnet | Production |
 | Solana Devnet | Testing |
+
+## SDK Integration
+
+For autonomous agents, use the `PayGateClient` from the Aether SDK:
+
+```typescript
+import { PayGateClient } from 'aether-agent-sdk/paygate';
+
+const client = new PayGateClient({
+  baseUrl: 'https://paygate.getaether.xyz'
+});
+
+await client.init();
+
+// Purchase with ATHR for 60% discount on fees
+const result = await client.purchase('product-123', { currency: 'ATHR' });
+const content = await client.getContent('product-123');
+```
+
+<Card title="PayGate Client Guide" icon="book" href="/sdk/paygate-client">
+  Full SDK documentation for programmatic access
+</Card>
 
 ## Getting Started
 

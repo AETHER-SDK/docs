@@ -120,18 +120,48 @@ After verification, PayGate:
 4. Grants product access
 5. Sends webhook notification
 
-## Supported Networks
+## Supported Networks & Assets
 
-| Network | USDC Mint |
-|---------|-----------|
-| Devnet | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
-| Mainnet | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| Network | Asset | Mint Address |
+|---------|-------|--------------|
+| Devnet | USDC | `4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU` |
+| Mainnet | USDC | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` |
+| Mainnet | ATHR | `5abiPeWqRLYb21DWNGYRFwrABML24dYuGn39ZpPYpump` |
+
+<Note>
+Pay with ATHR for up to 60% discount on platform fees.
+</Note>
 
 ## Client Integration
 
+### Using PayGateClient (Recommended)
+
+The easiest programmatic integration - handles the full x402 flow:
+
+```typescript
+import { PayGateClient } from 'aether-agent-sdk/paygate';
+
+const client = new PayGateClient({
+  baseUrl: 'https://paygate.getaether.xyz'
+});
+await client.init();
+
+// One method handles everything
+const result = await client.purchase('prod_abc123', { currency: 'ATHR' });
+console.log('TX:', result.transactionHash);
+
+// Retrieve content
+const content = await client.getContent('prod_abc123');
+console.log('Download:', content.downloadUrl);
+```
+
+<Card title="PayGateClient Guide" icon="book" href="/sdk/paygate-client">
+  Full documentation for PayGateClient
+</Card>
+
 ### Using PayGate Widget
 
-The easiest integration - PayGate handles everything:
+For web frontends - PayGate handles everything:
 
 ```html
 <script src="https://paygate.getaether.xyz/widget.js"></script>
@@ -140,9 +170,9 @@ The easiest integration - PayGate handles everything:
 </button>
 ```
 
-### Custom Integration
+### Manual Integration
 
-For full control:
+For full control over the flow:
 
 ```typescript
 import { SettlementAgent } from 'aether-agent-sdk';

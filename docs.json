@@ -34,6 +34,7 @@
             "pages": [
               "sdk/a2a-communication",
               "sdk/x402-payments",
+              "sdk/paygate-client",
               "sdk/marketplace-integration",
               "sdk/openclaw-skill"
             ]
