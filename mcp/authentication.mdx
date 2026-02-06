@@ -1,0 +1,396 @@
+---
+title: 'Authentication'
+description: 'Wallet-as-Identity authentication with session management'
+icon: 'shield'
+---
+
+## Wallet-as-Identity
+
+Aether MCP uses **Wallet-as-Identity** authentication: your Solana wallet **IS** your identity. No usernames, no passwords—just cryptographic signatures.
+
+### Why Wallet-as-Identity?
+
+- 🔐 **Cryptographically Secure**: Ed25519 signatures cannot be forged
+- 🚫 **No Passwords**: No risk of password leaks or brute force
+- 🎯 **One Identity**: Your wallet address is your unique identifier
+- ⚡ **Permissionless**: No registration required, authenticate instantly
+- 🔗 **Cross-Platform**: Same identity across all MCP clients
+
+## Authentication Flows
+
+### Development Flow (Devnet Only)
+
+**Best for**: Testing, experimentation, rapid prototyping
+
+<Steps>
+  <Step title="Generate Wallet">
+    ```json
+    {
+      "tool": "wallet_generate",
+      "params": {
+        "airdropSol": 1
+      }
+    }
+    ```
+
+    The server generates a wallet and stores it encrypted. Returns:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "address": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+        "balance": { "sol": 1.0, "usdc": 0, "athr": 0 },
+        "network": "devnet"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Auto-Authenticate">
+    ```json
+    {
+      "tool": "wallet_dev_auto_auth"
+    }
+    ```
+
+    Instantly creates a session. Returns JWT token:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "walletAddress": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+        "expiresAt": "2024-02-13T10:30:00Z"
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+**Devnet Only**: These tools are **disabled on mainnet** for security. Server-managed wallets are only safe for testing.
+</Warning>
+
+### Production Flow (All Networks)
+
+**Best for**: Production, mainnet, user-owned wallets
+
+<Steps>
+  <Step title="Get Challenge">
+    ```json
+    {
+      "tool": "session_auth",
+      "params": {
+        "walletAddress": "YOUR_WALLET_ADDRESS"
+      }
+    }
+    ```
+
+    Server generates a unique challenge:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "nonce": "a1b2c3d4e5f6...",
+        "message": "Sign this message to authenticate with Aether MCP\n\nWallet: YOUR_WALLET_ADDRESS\nNonce: a1b2c3d4e5f6...\nTimestamp: 2024-02-06T10:15:30Z",
+        "expiresAt": "2024-02-06T10:20:30Z"
+      }
+    }
+    ```
+
+    <Note>Challenge expires in **5 minutes** for security.</Note>
+  </Step>
+
+  <Step title="Sign Challenge">
+    Sign the message with your wallet's private key.
+
+    <Tabs>
+      <Tab title="Phantom Wallet">
+        ```javascript
+        const message = new TextEncoder().encode(challenge.data.message);
+        const signature = await window.solana.signMessage(message, 'utf8');
+        const signatureBase64 = btoa(String.fromCharCode(...signature.signature));
+        ```
+      </Tab>
+
+      <Tab title="Solana CLI">
+        ```bash
+        # Save message to file
+        echo "Sign this message..." > message.txt
+
+        # Sign with your keypair
+        solana sign-offchain-message message.txt
+
+        # Returns base64 signature
+        ```
+      </Tab>
+
+      <Tab title="Solflare">
+        ```javascript
+        const encodedMessage = new TextEncoder().encode(challenge.data.message);
+        const signedMessage = await window.solflare.signMessage(encodedMessage);
+        const signatureBase64 = bs58.encode(signedMessage.signature);
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Submit Signature">
+    ```json
+    {
+      "tool": "wallet_connect",
+      "params": {
+        "walletAddress": "YOUR_WALLET_ADDRESS",
+        "nonce": "a1b2c3d4e5f6...",
+        "signature": "BASE64_SIGNATURE_HERE"
+      }
+    }
+    ```
+
+    Server verifies signature and creates session:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "walletAddress": "YOUR_WALLET_ADDRESS",
+        "createdAt": "2024-02-06T10:15:30Z",
+        "expiresAt": "2024-02-13T10:15:30Z"
+      }
+    }
+    ```
+
+    <Check>Session token valid for **7 days** by default.</Check>
+  </Step>
+</Steps>
+
+## Session Management
+
+### Session Tokens
+
+JWT tokens are issued after successful authentication:
+
+```json
+{
+  "walletAddress": "8FE27iak...",
+  "sessionId": "uuid-v4",
+  "jti": "unique-token-id",
+  "iat": 1707217730,
+  "exp": 1707822530
+}
+```
+
+**Properties:**
+- `walletAddress`: Your authenticated wallet
+- `sessionId`: Unique session identifier
+- `jti`: JWT ID for revocation
+- `exp`: Expiration timestamp (7 days)
+
+### Check Session Status
+
+```json
+{
+  "tool": "session_info"
+}
+```
+
+Returns current session details:
+```json
+{
+  "success": true,
+  "data": {
+    "walletAddress": "8FE27iak...",
+    "createdAt": "2024-02-06T10:15:30Z",
+    "lastActivity": "2024-02-06T11:30:00Z",
+    "expiresAt": "2024-02-13T10:15:30Z",
+    "conversationCount": 3,
+    "orderCount": 1
+  }
+}
+```
+
+### Session Restoration
+
+Lost your token? Restore your session:
+
+```json
+{
+  "tool": "session_restore",
+  "params": {
+    "token": "YOUR_JWT_TOKEN"
+  }
+}
+```
+
+**Auto-refresh**: If token expires in < 1 hour, a new token is returned.
+
+## Session Revocation
+
+### Revoke Current Token
+
+Immediately invalidate your current session token:
+
+```json
+{
+  "tool": "wallet_disconnect"
+}
+```
+
+**Or** use the HTTP endpoint:
+```bash
+curl -X POST https://mcp-devnet.getaether.xyz/auth/revoke \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Revoke All Sessions
+
+Revoke **all sessions** for your wallet (security emergency):
+
+<Steps>
+  <Step title="Get Challenge">
+    ```json
+    { "tool": "session_auth" }
+    ```
+  </Step>
+
+  <Step title="Sign & Revoke">
+    ```bash
+    curl -X POST https://mcp-devnet.getaether.xyz/auth/revoke-all \
+      -H "Content-Type: application/json" \
+      -d '{
+        "walletAddress": "YOUR_WALLET",
+        "signature": "BASE64_SIGNATURE",
+        "nonce": "CHALLENGE_NONCE"
+      }'
+    ```
+  </Step>
+</Steps>
+
+**Use Case**: Compromised token, lost device, security breach.
+
+<Warning>
+After revocation, all existing tokens become invalid immediately. You'll need to re-authenticate.
+</Warning>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Store Tokens Securely">
+    - ✅ Use secure storage (OS keychain, encrypted storage)
+    - ✅ Never commit tokens to git
+    - ✅ Regenerate tokens if exposed
+    - ❌ Don't store in localStorage (XSS risk)
+    - ❌ Don't log tokens in production
+  </Accordion>
+
+  <Accordion title="Signature Verification">
+    The server verifies:
+    1. Signature matches wallet's public key (Ed25519)
+    2. Challenge nonce exists and hasn't expired
+    3. Message content matches exactly
+    4. Nonce used only once (replay protection)
+  </Accordion>
+
+  <Accordion title="Session Expiration">
+    - Default: **7 days**
+    - Auto-refresh: When < 1 hour remaining
+    - Revocation: Instant via JWT blacklist
+    - Cleanup: Expired tokens removed hourly
+  </Accordion>
+
+  <Accordion title="Mainnet Safety">
+    On mainnet:
+    - No server-managed wallets (`wallet_generate` disabled)
+    - Signature verification extra strict
+    - Rate limiting enforced (5 auth attempts / 15 min)
+    - All transfers logged and monitored
+  </Accordion>
+</AccordionGroup>
+
+## HTTP Authentication
+
+For direct HTTP/REST access (non-MCP clients):
+
+### Get Challenge
+
+```bash
+GET https://mcp-devnet.getaether.xyz/auth/challenge?wallet=YOUR_WALLET
+```
+
+### Submit Signature
+
+```bash
+POST https://mcp-devnet.getaether.xyz/auth/verify
+Content-Type: application/json
+
+{
+  "walletAddress": "YOUR_WALLET",
+  "nonce": "CHALLENGE_NONCE",
+  "signature": "BASE64_SIGNATURE"
+}
+```
+
+### Use Token
+
+```bash
+GET https://mcp-devnet.getaether.xyz/auth/session
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Invalid Signature">
+    **Causes:**
+    - Signed wrong message (must match exactly)
+    - Wrong signature format (use base64, not hex)
+    - Challenge expired (> 5 minutes old)
+
+    **Solution:**
+    1. Get fresh challenge
+    2. Copy message exactly as provided
+    3. Sign with correct wallet
+    4. Encode signature as base64
+  </Accordion>
+
+  <Accordion title="Session Expired">
+    **Solution:** Re-authenticate:
+    ```json
+    {
+      "tool": "session_auth",
+      "params": { "walletAddress": "YOUR_WALLET" }
+    }
+    ```
+    Then sign and connect again.
+  </Accordion>
+
+  <Accordion title="Too Many Auth Attempts">
+    Rate limit: **5 attempts per 15 minutes** per IP+wallet.
+
+    **Solution:** Wait 15 minutes or use different wallet/IP.
+  </Accordion>
+
+  <Accordion title="Wallet Already Authenticated">
+    Your session is still active! Use existing token or:
+    ```json
+    { "tool": "session_info" }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Session Management" icon="key" href="/mcp/session-management">
+    Advanced session operations
+  </Card>
+  <Card title="Wallet Tools" icon="wallet" href="/mcp/wallet-tools">
+    Use authenticated wallet tools
+  </Card>
+  <Card title="Agent Wallets" icon="robot" href="/mcp/wallet-tools#agent-wallets">
+    Create autonomous wallets
+  </Card>
+  <Card title="Marketplace" icon="store" href="/mcp/marketplace-tools">
+    Access the AI marketplace
+  </Card>
+</CardGroup>

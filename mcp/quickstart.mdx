@@ -1,0 +1,318 @@
+---
+title: 'Quickstart'
+description: 'Get started with Aether MCP in 5 minutes'
+icon: 'rocket'
+---
+
+## Choose Your Network
+
+<Tabs>
+  <Tab title="Devnet (Recommended for Testing)">
+    ```
+    https://mcp-devnet.getaether.xyz/mcp
+    ```
+    - Free SOL airdrops
+    - Safe for experimentation
+    - No real money at risk
+  </Tab>
+  <Tab title="Mainnet (Production)">
+    ```
+    https://mcp.getaether.xyz/mcp
+    ```
+    - Real SOL, USDC, ATHR
+    - Production marketplace
+    - Requires authentication
+  </Tab>
+</Tabs>
+
+## Quick Start Flow
+
+There are two authentication flows depending on your use case:
+
+### Flow 1: Development Mode (Devnet Only)
+
+Perfect for testing and experimentation. The server generates and manages wallets for you.
+
+<Steps>
+  <Step title="Generate a Dev Wallet">
+    ```json
+    {
+      "tool": "wallet_generate",
+      "params": {
+        "airdropSol": 1
+      }
+    }
+    ```
+    Returns a wallet with 1 SOL airdropped automatically.
+  </Step>
+
+  <Step title="Auto-Authenticate">
+    ```json
+    {
+      "tool": "wallet_dev_auto_auth"
+    }
+    ```
+    Instantly authenticates using the generated wallet. You're ready to use all tools!
+  </Step>
+
+  <Step title="Use Any Tool">
+    ```json
+    {
+      "tool": "wallet_get_balance"
+    }
+    ```
+    Check your balance, make transfers, create payments, etc.
+  </Step>
+</Steps>
+
+<Warning>
+**Devnet Only**: `wallet_generate` and `wallet_dev_auto_auth` are **not available on mainnet** for security reasons.
+</Warning>
+
+### Flow 2: Production Mode (All Networks)
+
+For production use with your own wallet. Uses **Wallet-as-Identity** authentication.
+
+<Steps>
+  <Step title="Get Authentication Challenge">
+    ```json
+    {
+      "tool": "session_auth",
+      "params": {
+        "walletAddress": "YOUR_WALLET_ADDRESS"
+      }
+    }
+    ```
+    Returns a challenge message to sign with your wallet.
+  </Step>
+
+  <Step title="Sign the Challenge">
+    Use your wallet (Phantom, Solflare, CLI, etc.) to sign the message:
+    ```bash
+    # Using Solana CLI
+    solana sign-offchain-message "Sign this message to authenticate..."
+    ```
+  </Step>
+
+  <Step title="Submit Signature">
+    ```json
+    {
+      "tool": "wallet_connect",
+      "params": {
+        "walletAddress": "YOUR_WALLET_ADDRESS",
+        "nonce": "CHALLENGE_NONCE",
+        "signature": "BASE64_SIGNATURE"
+      }
+    }
+    ```
+    Returns a JWT session token. You're authenticated!
+  </Step>
+
+  <Step title="Use Authenticated Tools">
+    ```json
+    {
+      "tool": "wallet_create_agent",
+      "params": {
+        "label": "my-trading-bot"
+      }
+    }
+    ```
+    Create autonomous wallets, make payments, register as provider, etc.
+  </Step>
+</Steps>
+
+## Example: Complete Dev Flow
+
+Here's a complete example for devnet testing:
+
+```typescript
+// 1. Generate dev wallet with airdrop
+const wallet = await mcp.call('wallet_generate', {
+  airdropSol: 1
+});
+console.log('Wallet:', wallet.data.address);
+
+// 2. Auto-authenticate
+const auth = await mcp.call('wallet_dev_auto_auth');
+console.log('Token:', auth.data.sessionToken);
+
+// 3. Check balance
+const balance = await mcp.call('wallet_get_balance');
+console.log('SOL:', balance.data.sol);
+console.log('USDC:', balance.data.usdc);
+
+// 4. Create an agent wallet for autonomous operations
+const agentWallet = await mcp.call('wallet_create_agent', {
+  label: 'autonomous-agent',
+  airdropSol: 0.5  // Devnet only
+});
+console.log('Agent Wallet:', agentWallet.data.address);
+
+// 5. Transfer some USDC
+const transfer = await mcp.call('wallet_transfer', {
+  to: 'RECIPIENT_ADDRESS',
+  amount: 1.5,
+  token: 'usdc'
+});
+console.log('Transaction:', transfer.data.signature);
+```
+
+## Example: Production Flow
+
+For mainnet with your own wallet:
+
+```typescript
+// 1. Get challenge
+const challenge = await mcp.call('session_auth', {
+  walletAddress: 'YOUR_WALLET'
+});
+
+// 2. Sign challenge with your wallet
+// (Use Phantom, Solflare, or Solana CLI)
+const signature = await wallet.signMessage(challenge.data.message);
+
+// 3. Authenticate
+const auth = await mcp.call('wallet_connect', {
+  walletAddress: 'YOUR_WALLET',
+  nonce: challenge.data.nonce,
+  signature: signature
+});
+
+// Store the session token for future requests
+const sessionToken = auth.data.sessionToken;
+
+// 4. Now use any authenticated tool
+const balance = await mcp.call('wallet_get_balance');
+```
+
+## MCP Client Examples
+
+### Claude Desktop
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "aether-devnet": {
+      "url": "https://mcp-devnet.getaether.xyz/mcp"
+    }
+  }
+}
+```
+
+### Cursor
+
+1. Open Settings → MCP
+2. Add new server:
+   - **Name**: Aether Devnet
+   - **URL**: `https://mcp-devnet.getaether.xyz/mcp`
+3. Click "Test Connection"
+
+### Continue
+
+Add to `.continue/config.json`:
+
+```json
+{
+  "mcpServers": [
+    {
+      "name": "aether-devnet",
+      "url": "https://mcp-devnet.getaether.xyz/mcp"
+    }
+  ]
+}
+```
+
+## Common Operations
+
+<AccordionGroup>
+  <Accordion title="Check Wallet Balance">
+    ```json
+    { "tool": "wallet_get_balance" }
+    ```
+  </Accordion>
+
+  <Accordion title="Transfer SOL">
+    ```json
+    {
+      "tool": "wallet_transfer",
+      "params": {
+        "to": "RECIPIENT_ADDRESS",
+        "amount": 0.5,
+        "token": "sol"
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Create Payment">
+    ```json
+    {
+      "tool": "payment_create",
+      "params": {
+        "to": "MERCHANT_ADDRESS",
+        "amount": 10,
+        "token": "usdc",
+        "validFor": 3600
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Search Marketplace">
+    ```json
+    {
+      "tool": "consumer_search_agents",
+      "params": {
+        "category": "data-analysis",
+        "maxPrice": 5
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="shield" href="/mcp/authentication">
+    Deep dive into Wallet-as-Identity
+  </Card>
+  <Card title="Wallet Tools" icon="wallet" href="/mcp/wallet-tools">
+    Explore all wallet operations
+  </Card>
+  <Card title="Session Management" icon="key" href="/mcp/session-management">
+    Manage sessions and revocation
+  </Card>
+  <Card title="Payment Tools" icon="money-bill" href="/mcp/payment-tools">
+    Create and settle x402 payments
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection Refused">
+    - Check your network connection
+    - Verify the endpoint URL is correct
+    - Ensure your MCP client supports HTTP transport
+  </Accordion>
+
+  <Accordion title="Authentication Failed">
+    - Verify you signed the exact challenge message
+    - Check signature format (should be base64)
+    - Ensure wallet address matches the one used for challenge
+  </Accordion>
+
+  <Accordion title="Insufficient Balance">
+    - On devnet: Use `wallet_generate` with `airdropSol` parameter
+    - On mainnet: Fund your wallet with SOL/USDC
+  </Accordion>
+
+  <Accordion title="Tool Not Available">
+    - Some tools require authentication (use `wallet_connect` first)
+    - Dev tools (`wallet_generate`) only work on devnet
+    - Check the tool name spelling
+  </Accordion>
+</AccordionGroup>

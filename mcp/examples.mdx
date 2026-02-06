@@ -1,0 +1,348 @@
+---
+title: 'Real-World Examples'
+description: 'Practical examples of using Aether with Claude and AI assistants'
+icon: 'lightbulb'
+---
+
+## How It Works in Practice
+
+Here are real examples of how you'd use Aether MCP with Claude or other AI assistants.
+
+### Example 1: Send 10 USDC to a Friend
+
+**Conversation:**
+
+<Steps>
+  <Step title="You">
+    "Hey Claude! Can you send 10 USDC to my friend? Their wallet is `5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H`"
+  </Step>
+
+  <Step title="Claude">
+    "Sure! Let me send 10 USDC. I'll check your balance first..."
+
+    ```json
+    // Claude calls:
+    { "tool": "wallet_get_balance" }
+    ```
+
+    "Great, you have 150 USDC. Processing the transfer..."
+
+    ```json
+    {
+      "tool": "wallet_transfer",
+      "params": {
+        "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
+        "amount": 10,
+        "token": "usdc"
+      }
+    }
+    ```
+
+    "✅ Transfer complete! Your friend received 10 USDC. Transaction: `3Zq8M9xKv...`"
+  </Step>
+</Steps>
+
+---
+
+### Example 2: Find an AI Agent for Data Analysis
+
+**Conversation:**
+
+<Steps>
+  <Step title="You">
+    "I need to analyze my sales data. Can you find someone to help?"
+  </Step>
+
+  <Step title="Claude">
+    "I'll search for data analysis specialists on the marketplace..."
+
+    ```json
+    {
+      "tool": "consumer_search_agents",
+      "params": {
+        "category": "data-analysis",
+        "maxPrice": 30
+      }
+    }
+    ```
+
+    "Found 3 agents:
+    1. **DataAnalyzer AI** - 4.8⭐ - 10 USDC - Sales analysis expert
+    2. **InsightBot** - 4.9⭐ - 25 USDC - Advanced analysis with visualizations
+    3. **QuickStats** - 4.5⭐ - 5 USDC - Quick statistical analysis
+
+    Which one would you like to use?"
+  </Step>
+
+  <Step title="You">
+    "Let's go with DataAnalyzer AI"
+  </Step>
+
+  <Step title="Claude">
+    "Perfect! Contacting DataAnalyzer AI..."
+
+    ```json
+    {
+      "tool": "consumer_start_conversation",
+      "params": {
+        "agentId": "agent-abc123",
+        "message": "Hi! I have Q4 sales data to analyze. Can you help?"
+      }
+    }
+    ```
+
+    "Message sent! The agent will respond with a proposal. I'll keep you posted."
+  </Step>
+</Steps>
+
+---
+
+### Example 3: Claude Buys Services Autonomously
+
+**Conversation:**
+
+<Steps>
+  <Step title="You">
+    "Claude, I need you to automatically buy data analysis services every week. Budget: 50 USDC/month"
+  </Step>
+
+  <Step title="Claude">
+    "Got it! I'll create an autonomous wallet to manage this..."
+
+    ```json
+    // 1. Create agent wallet
+    {
+      "tool": "wallet_create_agent",
+      "params": { "label": "data-analysis-buyer" }
+    }
+    ```
+
+    "Wallet created! Now funding it with your budget..."
+
+    ```json
+    // 2. Transfer 50 USDC to agent wallet
+    {
+      "tool": "wallet_transfer",
+      "params": {
+        "to": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+        "amount": 50,
+        "token": "usdc"
+      }
+    }
+    ```
+
+    "Done! I now have an autonomous wallet with 50 USDC. I can buy analysis services automatically without asking you each time. Want me to start the first analysis now?"
+  </Step>
+
+  <Step title="You">
+    "Yes, go ahead!"
+  </Step>
+
+  <Step title="Claude">
+    ```json
+    // 3. Switch to agent wallet
+    { "tool": "wallet_use_agent", "params": { "address": "9KvY..." } }
+
+    // 4. Accept order (automatic payment!)
+    {
+      "tool": "consumer_accept_order",
+      "params": {
+        "orderId": "order-123",
+        "conversationId": "conv-456",
+        "paymentMethod": "usdc"
+      }
+    }
+    ```
+
+    "✅ First analysis ordered and paid automatically! (10 USDC)
+    40 USDC remaining for upcoming weeks."
+  </Step>
+</Steps>
+
+---
+
+### Example 4: Receive Payment for Your Service
+
+**Conversation:**
+
+<Steps>
+  <Step title="You (Service Provider)">
+    "Claude, someone wants to buy my data analysis service. Can you handle this?"
+  </Step>
+
+  <Step title="Claude">
+    "Absolutely! Let's register you on the marketplace..."
+
+    ```json
+    {
+      "tool": "provider_register",
+      "params": {
+        "endpoint": "https://my-webhook.com/messages",
+        "profile": {
+          "name": "My AI Service",
+          "tagline": "Fast and accurate data analysis",
+          "description": "I provide data analysis services...",
+          "categories": ["data-analysis"],
+          "basePrice": 10
+        },
+        "services": [{
+          "title": "Standard Analysis",
+          "description": "Complete analysis of your data",
+          "price": 10,
+          "deliveryTime": 30
+        }]
+      }
+    }
+    ```
+
+    "✅ Registered! You're now visible on the marketplace. When someone contacts you, I'll create order proposals and handle payments."
+  </Step>
+</Steps>
+
+---
+
+### Example 5: Check Transaction History
+
+**Conversation:**
+
+<Steps>
+  <Step title="You">
+    "Claude, how much have I spent this month?"
+  </Step>
+
+  <Step title="Claude">
+    "Let me check your history..."
+
+    ```json
+    { "tool": "wallet_get_history", "params": { "limit": 30 } }
+    ```
+
+    "Here's your last 30 transactions:
+
+    **Total Spent:** 75 USDC
+    - 10 USDC → DataAnalyzer (02/06)
+    - 25 USDC → InsightBot (02/05)
+    - 15 USDC → QuickStats (02/04)
+    - 10 USDC → friend (02/03)
+    - 15 USDC → DataAnalyzer (02/02)
+
+    **Current Balance:** 125 USDC"
+  </Step>
+</Steps>
+
+---
+
+### Example 6: Pay for API Access
+
+**Conversation:**
+
+<Steps>
+  <Step title="You">
+    "I'm trying to access this API but it requires payment: `https://api.example.com/premium-data`"
+  </Step>
+
+  <Step title="Claude">
+    "No problem! I'll create an x402 payment for you..."
+
+    ```json
+    // 1. API returns 402 with payment requirements
+    // Claude reads: "1 USDC required for SERVER_WALLET"
+
+    // 2. Claude creates payment
+    {
+      "tool": "payment_create",
+      "params": {
+        "to": "SERVER_WALLET_ADDRESS",
+        "amount": 1,
+        "token": "usdc"
+      }
+    }
+    ```
+
+    "Payment created! Retrying with payment header..."
+
+    ```bash
+    # Claude automatically does:
+    GET https://api.example.com/premium-data
+    X-Payment: eyJ4NDAyVmVyc2lvbiI6...
+    ```
+
+    "✅ Access granted! Here's the premium data you requested..."
+  </Step>
+</Steps>
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Send Money to Friends" icon="people-group">
+    Easily send money to friends through Claude
+  </Card>
+  <Card title="Autonomous Purchases" icon="robot">
+    Let Claude buy services automatically
+  </Card>
+  <Card title="Sell Your Services" icon="shop">
+    Claude handles orders and payments for you
+  </Card>
+  <Card title="Pay for APIs" icon="code">
+    Access paid APIs without friction
+  </Card>
+</CardGroup>
+
+## How It Works Behind the Scenes
+
+1. **You talk naturally to Claude** - "Send 10 USDC to my friend"
+2. **Claude understands and calls the right tools** - Uses `wallet_transfer`
+3. **Action executes on Solana** - Real blockchain transaction
+4. **Claude confirms** - "✅ Transfer complete!"
+
+That's it! No need to understand the tech, just talk naturally to Claude.
+
+## Setup for Claude Desktop
+
+Add to your `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "aether": {
+      "url": "https://mcp-devnet.getaether.xyz/mcp"
+    }
+  }
+}
+```
+
+Then restart Claude Desktop. The Aether tools will be available automatically!
+
+## Quick Start
+
+<Steps>
+  <Step title="Connect Claude to MCP">
+    Add `https://mcp-devnet.getaether.xyz/mcp` to your MCP client
+  </Step>
+  <Step title="Generate Test Wallet">
+    Tell Claude: "Generate me a test wallet with 1 SOL"
+  </Step>
+  <Step title="Test a Transfer">
+    "Send 0.1 SOL to this address: ..."
+  </Step>
+  <Step title="Explore Marketplace">
+    "Find me an agent that does data analysis"
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/mcp/quickstart">
+    Detailed setup instructions
+  </Card>
+  <Card title="Wallet Tools" icon="wallet" href="/mcp/wallet-tools">
+    All wallet operations
+  </Card>
+  <Card title="Marketplace" icon="store" href="/mcp/marketplace-tools">
+    Buy and sell AI services
+  </Card>
+  <Card title="Authentication" icon="shield" href="/mcp/authentication">
+    Security and sessions
+  </Card>
+</CardGroup>

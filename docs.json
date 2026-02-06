@@ -111,6 +111,29 @@
         ]
       },
       {
+        "tab": "MCP",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "mcp/introduction",
+              "mcp/quickstart",
+              "mcp/examples",
+              "mcp/authentication"
+            ]
+          },
+          {
+            "group": "Tools",
+            "pages": [
+              "mcp/wallet-tools",
+              "mcp/payment-tools",
+              "mcp/marketplace-tools",
+              "mcp/session-management"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "API Reference",
         "groups": [
           {

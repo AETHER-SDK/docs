@@ -1,0 +1,618 @@
+---
+title: 'Wallet Tools'
+description: 'Manage wallets, transfers, and autonomous agent wallets'
+icon: 'wallet'
+---
+
+## Overview
+
+Aether MCP provides **14 wallet tools** (11 on mainnet, 14 on devnet) for complete wallet management:
+
+- 🔑 **Dev Wallets**: Generate test wallets (devnet only)
+- 💸 **Transfers**: Send SOL, USDC, and ATHR
+- 🤖 **Agent Wallets**: Create autonomous wallets for AI agents
+- 📊 **Balance & History**: Check balances and transaction history
+
+## Development Wallets (Devnet Only)
+
+<Warning>
+These tools are **only available on devnet/testnet**. They are **disabled on mainnet** for security.
+</Warning>
+
+### wallet_generate
+
+Generate a development wallet with optional SOL airdrop.
+
+**Parameters:**
+- `airdropSol` (optional): Amount of SOL to airdrop (0-2, default: 1)
+
+**Returns:**
+- `address`: Generated wallet address
+- `balance`: Current balance (SOL, USDC, ATHR)
+- `network`: Network name
+
+**Example:**
+```json
+{
+  "tool": "wallet_generate",
+  "params": {
+    "airdropSol": 1
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "address": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+    "balance": {
+      "sol": 1.0,
+      "usdc": 0,
+      "athr": 0
+    },
+    "network": "devnet",
+    "message": "Wallet generated and persisted. Use wallet_dev_auto_auth to authenticate."
+  }
+}
+```
+
+<Tip>
+Dev wallets are **persisted** and can be restored across sessions using the same server.
+</Tip>
+
+---
+
+### wallet_list_dev
+
+List all development wallets on the current network.
+
+**No Parameters Required**
+
+**Returns:**
+- List of wallet addresses with creation/last used timestamps
+
+**Example:**
+```json
+{
+  "tool": "wallet_list_dev"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "wallets": [
+      {
+        "address": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+        "network": "devnet",
+        "createdAt": "2024-02-06T10:00:00Z",
+        "lastUsed": "2024-02-06T11:30:00Z"
+      },
+      {
+        "address": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
+        "network": "devnet",
+        "createdAt": "2024-02-05T14:20:00Z",
+        "lastUsed": "2024-02-06T09:15:00Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### wallet_dev_auto_auth
+
+**Full autonomous authentication** in one call! Generates challenge, signs it, and authenticates.
+
+**No Parameters Required**
+
+**Returns:**
+- Session token
+- Wallet address
+- Session expiration
+
+**Example:**
+```json
+{
+  "tool": "wallet_dev_auto_auth"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "walletAddress": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+    "expiresAt": "2024-02-13T10:00:00Z"
+  }
+}
+```
+
+<Check>
+Perfect for AI agents! One call to go from wallet generation to full authentication.
+</Check>
+
+## Wallet Operations
+
+### wallet_get_address
+
+Get the current wallet address.
+
+**No Parameters Required**
+
+**Example:**
+```json
+{
+  "tool": "wallet_get_address"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "address": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+    "network": "devnet"
+  }
+}
+```
+
+---
+
+### wallet_get_balance
+
+Get wallet balance for SOL and SPL tokens (USDC, ATHR).
+
+**No Parameters Required**
+
+**Example:**
+```json
+{
+  "tool": "wallet_get_balance"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "sol": 1.5,
+    "usdc": 100.0,
+    "athr": 50.0,
+    "walletAddress": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr"
+  }
+}
+```
+
+---
+
+### wallet_transfer
+
+Transfer SOL, USDC, or ATHR to another wallet.
+
+**Parameters:**
+- `to`: Recipient wallet address (required)
+- `amount`: Amount to transfer (required)
+- `token`: Token to transfer - 'sol', 'usdc', or 'athr' (default: 'usdc')
+
+**Returns:**
+- Transaction signature
+- Transfer details
+
+**Limits:**
+- SOL: 0.001 - 100 (warning if > 10)
+- USDC: 0.01 - 10,000 (warning if > 1,000)
+- ATHR: 0.01 - 10,000 (warning if > 1,000)
+
+**Example:**
+```json
+{
+  "tool": "wallet_transfer",
+  "params": {
+    "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
+    "amount": 10.5,
+    "token": "usdc"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "signature": "3Zq8M9xKvRnP2yJwN5tLhQ8K7fX4bV9mD1cY6eU2rG5s...",
+    "from": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
+    "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
+    "amount": 10.5,
+    "token": "usdc",
+    "network": "devnet"
+  }
+}
+```
+
+<Tip>
+**ATHR has lower fees than USDC!** Consider using ATHR for frequent transfers.
+</Tip>
+
+---
+
+### wallet_get_history
+
+Get recent transaction history.
+
+**Parameters:**
+- `limit` (optional): Number of transactions (1-100, default: 10)
+
+**Example:**
+```json
+{
+  "tool": "wallet_get_history",
+  "params": {
+    "limit": 5
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "transactions": [
+      {
+        "signature": "3Zq8M9xKvRnP2yJwN5tLhQ8K7fX4bV9mD1cY6eU2rG5s",
+        "timestamp": 1707222000,
+        "type": "transfer",
+        "amount": 10.5,
+        "status": "confirmed"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### wallet_disconnect
+
+Disconnect current wallet session and revoke JWT token.
+
+**No Parameters Required**
+
+**Example:**
+```json
+{
+  "tool": "wallet_disconnect"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Wallet disconnected successfully"
+}
+```
+
+## Agent Wallets (Autonomous Wallets)
+
+**Requires Authentication** - Must call `wallet_connect` first.
+
+Agent wallets are **autonomous wallets controlled by the AI agent**. Private keys are encrypted server-side, allowing agents to sign transactions without user approval.
+
+<Warning>
+**Security**: Only deposit amounts you're comfortable with the agent spending autonomously.
+</Warning>
+
+### wallet_create_agent
+
+Create an autonomous wallet for the AI agent.
+
+**Parameters:**
+- `label` (optional): Label for this wallet (e.g., "trading-bot")
+- `airdropSol` (optional): SOL to airdrop (devnet only, 0-2)
+
+**Returns:**
+- Agent wallet address
+- Balance
+- Label
+
+**Limit**: Maximum **20 agent wallets per user**
+
+**Example:**
+```json
+{
+  "tool": "wallet_create_agent",
+  "params": {
+    "label": "trading-bot",
+    "airdropSol": 0.5
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "address": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+    "label": "trading-bot",
+    "balance": {
+      "sol": 0.5,
+      "usdc": 0,
+      "athr": 0
+    },
+    "createdAt": "2024-02-06T11:00:00Z"
+  }
+}
+```
+
+<Info>
+**Encryption**: Private keys encrypted with AES-256-GCM + PBKDF2 (600,000 iterations, OWASP 2026).
+</Info>
+
+---
+
+### wallet_list_agents
+
+List all agent wallets associated with your session.
+
+**No Parameters Required**
+
+**Example:**
+```json
+{
+  "tool": "wallet_list_agents"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "agentWallets": [
+      {
+        "address": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+        "label": "trading-bot",
+        "createdAt": "2024-02-06T11:00:00Z",
+        "lastUsed": "2024-02-06T12:30:00Z",
+        "isActive": true
+      },
+      {
+        "address": "7JwU2vK8nL9xM3oP4qR5sT6uV1wX0yY2zA3bC4dE5fG",
+        "label": "data-buyer",
+        "createdAt": "2024-02-05T09:15:00Z",
+        "lastUsed": "2024-02-06T10:00:00Z",
+        "isActive": true
+      }
+    ]
+  }
+}
+```
+
+---
+
+### wallet_use_agent
+
+Switch to using a specific agent wallet for signing transactions.
+
+**Parameters:**
+- `address`: Agent wallet address to use
+
+**Example:**
+```json
+{
+  "tool": "wallet_use_agent",
+  "params": {
+    "address": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "activeWallet": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+    "label": "trading-bot"
+  }
+}
+```
+
+---
+
+### wallet_agent_transfer
+
+Transfer using the active agent wallet. **No user confirmation required** - signed automatically!
+
+**Parameters:**
+- `to`: Recipient address (required)
+- `amount`: Amount to transfer (required)
+- `token`: 'sol', 'usdc', or 'athr' (default: 'usdc')
+
+**Example:**
+```json
+{
+  "tool": "wallet_agent_transfer",
+  "params": {
+    "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
+    "amount": 5.0,
+    "token": "usdc"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "signature": "2Xp7L8kJnM4oQ9rT5vW6uY3zB1aC0dE2fG8hI4jK6lN",
+    "from": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+    "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
+    "amount": 5.0,
+    "token": "usdc"
+  }
+}
+```
+
+<Check>
+Perfect for autonomous payments, marketplace purchases, and agent-to-agent transactions!
+</Check>
+
+---
+
+### wallet_export_agent
+
+Export agent wallet private key for backup.
+
+**Parameters:**
+- `address`: Agent wallet address
+- `format` (optional): 'base58' or 'json' (default: 'base58')
+
+**Example:**
+```json
+{
+  "tool": "wallet_export_agent",
+  "params": {
+    "address": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+    "format": "base58"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "address": "9KvY3mN7pQ5wR8xT2zU4bC6aD1eF7gH9jI0kL3mN5oP",
+    "privateKey": "5KQw...(base58 string)...",
+    "format": "base58"
+  }
+}
+```
+
+<Warning>
+**KEEP THIS SECURE!** Anyone with this private key can control the wallet. Store in a safe place.
+</Warning>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="AI Agent Marketplace Purchases">
+    ```javascript
+    // 1. Create agent wallet
+    const agent = await mcp.call('wallet_create_agent', {
+      label: 'marketplace-buyer'
+    });
+
+    // 2. Fund it
+    await mcp.call('wallet_transfer', {
+      to: agent.data.address,
+      amount: 100,
+      token: 'usdc'
+    });
+
+    // 3. Switch to agent wallet
+    await mcp.call('wallet_use_agent', {
+      address: agent.data.address
+    });
+
+    // 4. Agent can now autonomously purchase services
+    await mcp.call('consumer_accept_order', {
+      orderId: 'order-123',
+      conversationId: 'conv-456'
+    }); // Payment signed automatically!
+    ```
+  </Accordion>
+
+  <Accordion title="Automated Trading Bot">
+    ```javascript
+    const bot = await mcp.call('wallet_create_agent', {
+      label: 'trading-bot'
+    });
+
+    // Fund bot
+    await fundWallet(bot.data.address, 1000); // USDC
+
+    // Bot executes trades autonomously
+    setInterval(async () => {
+      await mcp.call('wallet_use_agent', { address: bot.data.address });
+
+      // Execute trade
+      await mcp.call('wallet_agent_transfer', {
+        to: 'EXCHANGE_ADDRESS',
+        amount: getTradeAmount(),
+        token: 'usdc'
+      });
+    }, 60000);
+    ```
+  </Accordion>
+
+  <Accordion title="Subscription Service">
+    ```javascript
+    // Monthly subscription payment
+    const subscriber = await mcp.call('wallet_create_agent', {
+      label: 'subscription-payer'
+    });
+
+    // Fund for 12 months
+    await mcp.call('wallet_transfer', {
+      to: subscriber.data.address,
+      amount: 120, // $10/month * 12
+      token: 'usdc'
+    });
+
+    // Auto-pay monthly
+    cron.schedule('0 0 1 * *', async () => { // 1st of month
+      await mcp.call('wallet_use_agent', { address: subscriber.data.address });
+      await mcp.call('wallet_agent_transfer', {
+        to: 'SERVICE_PROVIDER',
+        amount: 10,
+        token: 'usdc'
+      });
+    });
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Security Considerations
+
+| Aspect | Implementation |
+|--------|---------------|
+| **Dev Wallets** | Encrypted with AES-256-GCM, devnet-only |
+| **Agent Wallets** | PBKDF2 (600k iterations) + AES-256-GCM |
+| **Mainnet Safety** | No server-managed wallets, user must authenticate |
+| **Rate Limiting** | 100 requests/minute per wallet |
+| **Amount Limits** | SOL: 100 max, USDC/ATHR: 10,000 max |
+| **Wallet Limit** | Max 20 agent wallets per user |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Payment Tools" icon="money-bill" href="/mcp/payment-tools">
+    Create x402 payments with your wallet
+  </Card>
+  <Card title="Marketplace" icon="store" href="/mcp/marketplace-tools">
+    Use agent wallets in the marketplace
+  </Card>
+  <Card title="A2A Protocol" icon="robot" href="/mcp/a2a-tools">
+    Send payments between agents
+  </Card>
+  <Card title="Session Management" icon="key" href="/mcp/session-management">
+    Manage your authentication
+  </Card>
+</CardGroup>
