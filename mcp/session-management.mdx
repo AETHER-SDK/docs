@@ -16,7 +16,7 @@ Generate an authentication challenge for wallet signature.
 - `walletAddress` (optional): Your Solana wallet address
 
 **Returns:**
-- `nonce`: Challenge identifier
+- `nonce`: Challenge identifier (32 bytes)
 - `message`: Message to sign with your wallet
 - `expiresAt`: Challenge expiration time (5 minutes)
 
@@ -36,14 +36,14 @@ Generate an authentication challenge for wallet signature.
   "success": true,
   "data": {
     "nonce": "a1b2c3d4e5f67890abcdef1234567890",
-    "message": "Sign this message to authenticate with Aether MCP\n\nWallet: 8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr\nNonce: a1b2c3d4e5f67890abcdef1234567890\nTimestamp: 2024-02-06T10:15:30.123Z\n\nThis signature proves ownership of your wallet and will be used to create a secure session.",
-    "expiresAt": "2024-02-06T10:20:30.123Z"
+    "message": "Sign this message to authenticate with Aether MCP\n\nWallet: 8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr\nNonce: a1b2c3d4e5f67890abcdef1234567890\nTimestamp: 2025-02-06T10:15:30.123Z\n\nThis signature proves ownership of your wallet and will be used to create a secure session.",
+    "expiresAt": "2025-02-06T10:20:30.123Z"
   }
 }
 ```
 
 <Note>
-Challenges expire in **5 minutes** for security. Get a fresh challenge if expired.
+Challenges expire in **5 minutes** for security. Rate limited to **5 requests per minute** per wallet/IP.
 </Note>
 
 ---
@@ -54,13 +54,13 @@ Get information about your current session.
 
 **No Parameters Required**
 
-**Returns:**
+**Returns (if authenticated):**
 - `walletAddress`: Authenticated wallet
-- `createdAt`: Session creation timestamp
-- `lastActivity`: Last activity timestamp
-- `expiresAt`: Session expiration (7 days default)
-- `conversationCount`: Number of marketplace conversations
-- `orderCount`: Number of marketplace orders
+- `authenticated`: true
+- `isProvider`: Whether you've registered as a service provider
+- `stats`: Conversation count, order count, payment history
+- `recentConversations`: Last 5 conversations
+- `recentOrders`: Last 5 orders
 
 **Example:**
 ```json
@@ -75,11 +75,12 @@ Get information about your current session.
   "success": true,
   "data": {
     "walletAddress": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
-    "createdAt": "2024-02-06T10:15:30Z",
-    "lastActivity": "2024-02-06T11:45:22Z",
-    "expiresAt": "2024-02-13T10:15:30Z",
-    "conversationCount": 5,
-    "orderCount": 2
+    "authenticated": true,
+    "isProvider": false,
+    "stats": {
+      "conversationCount": 5,
+      "orderCount": 2
+    }
   }
 }
 ```
@@ -106,7 +107,7 @@ Restore a session from a JWT token (validates and refreshes if needed).
 {
   "tool": "session_restore",
   "params": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3YWxsZXRBZGRyZXNzIjoiOEZFMjdpYWs0YjJ5YWRLG9vZ0FQQUdOOVZubVlZWm04ZVVGNzFRaFZiZ05yIiwic2Vzc2lvbklkIjoiNTZhYjEyMzQtNTY3OC05MGFiLWNkZWYtMTIzNDU2Nzg5MGFiIiwianRpIjoiOTBhYmNkZWYtMTIzNC01Njc4LTkwYWItY2RlZjEyMzQ1Njc4IiwiaWF0IjoxNzA3MjE3NzMwLCJleHAiOjE3MDc4MjI1MzB9.signature"
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
 }
 ```
@@ -117,9 +118,9 @@ Restore a session from a JWT token (validates and refreshes if needed).
   "success": true,
   "data": {
     "walletAddress": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
-    "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", // New token if refreshed
-    "expiresAt": "2024-02-13T10:15:30Z",
-    "refreshed": true // If token was auto-refreshed
+    "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expiresAt": "2025-02-13T10:15:30Z",
+    "refreshed": true
   }
 }
 ```
@@ -128,13 +129,72 @@ Restore a session from a JWT token (validates and refreshes if needed).
 **Auto-Refresh**: If your token expires in < 1 hour, a new token is automatically returned.
 </Check>
 
+## Session Fingerprinting
+
+The server creates a **session fingerprint** to associate sessions with specific clients:
+
+```
+Fingerprint = SHA256(client_ip + user_agent_header)
+```
+
+This fingerprint is used to:
+
+- **Link wallets to clients**: The server stores fingerprint-wallet associations in the `fingerprint_wallet_links` database table
+- **Auto-restore sessions**: When a client reconnects with the same fingerprint, its previous wallet session is restored
+- **Devnet keypair restoration**: On devnet, the encrypted wallet keypair is automatically decrypted and restored
+
+This means reconnecting from the same device/client seamlessly restores your previous session without re-authentication.
+
+## Configurable Session Timeout
+
+In-memory session lifetime is configurable via environment variable:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_SESSION_TIMEOUT_MS` | `3600000` (1 hour) | Time before inactive in-memory session is cleaned up |
+
+<Note>
+This controls **in-memory cleanup only**. Session data persists in the database (SQLite or Redis) and survives server restarts. When a session is cleaned from memory, it can be **reconstructed** from the database.
+</Note>
+
+## Automatic Session Reconstruction
+
+When an in-memory session expires but persisted data exists, the server automatically reconstructs it:
+
+```mermaid
+graph TD
+    A[Client Reconnects] --> B{Fingerprint Known?}
+    B -->|Yes| C[Find Wallet Link in DB]
+    B -->|No| D[New Session Required]
+    C --> E{Wallet Data Exists?}
+    E -->|Yes| F[Rebuild Session from DB]
+    E -->|No| D
+    F --> G{Devnet?}
+    G -->|Yes| H[Restore Encrypted Keypair]
+    G -->|No| I[Session Ready - Read Only]
+    H --> J[Full Session Restored]
+    I --> J
+
+    style J fill:#10B981
+    style D fill:#EF4444
+```
+
+**What gets reconstructed:**
+- Wallet address and session metadata
+- Provider profile (if registered)
+- Conversation and order history
+- On devnet: wallet keypair (from encrypted storage)
+
+**What requires re-authentication:**
+- JWT token (must be stored client-side or use `session_restore`)
+- Connections from new devices/IPs (different fingerprint)
+
 ## Session Lifecycle
 
 ```mermaid
 graph TD
-    A[Unauthenticated] -->|session_auth| B[Challenge Generated]
-    B -->|Sign Message| C[Signature Created]
-    C -->|wallet_connect| D[Session Active]
+    A[Unauthenticated] -->|wallet_create| D[Session Active]
+    A -->|session_auth + wallet_connect| D
 
     D -->|session_info| E[Check Status]
     E -->|Valid| D
@@ -172,14 +232,6 @@ Use `wallet_disconnect` to revoke your current session token:
 3. Session data persists (can reconnect later)
 4. Any requests with this token will fail
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Session disconnected successfully"
-}
-```
-
 ### HTTP Revocation Endpoints
 
 For direct HTTP access (non-MCP clients):
@@ -189,14 +241,6 @@ For direct HTTP access (non-MCP clients):
 ```bash
 POST https://mcp-devnet.getaether.xyz/auth/revoke
 Authorization: Bearer YOUR_JWT_TOKEN
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Token revoked successfully"
-}
 ```
 
 #### Revoke All Sessions
@@ -211,26 +255,6 @@ Content-Type: application/json
   "walletAddress": "YOUR_WALLET_ADDRESS",
   "signature": "BASE64_SIGNATURE",
   "nonce": "CHALLENGE_NONCE"
-}
-```
-
-<Steps>
-  <Step title="Get Challenge">
-    Call `session_auth` to get a fresh challenge nonce
-  </Step>
-  <Step title="Sign Challenge">
-    Sign the message with your wallet
-  </Step>
-  <Step title="Submit Revocation">
-    POST to `/auth/revoke-all` with signature proof
-  </Step>
-</Steps>
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "All sessions revoked successfully"
 }
 ```
 
@@ -275,100 +299,12 @@ Sessions are stored in SQLite (or Redis for distributed deployments):
 - Conversation history (marketplace)
 - Order history (marketplace)
 - Payment references
+- Fingerprint-wallet links
 
 **Persisted Across:**
-- ✅ Server restarts
-- ✅ MCP transport reconnections
-- ✅ Different MCP clients (same wallet)
-
-**Not Persisted:**
-- ❌ JWT tokens (must store client-side)
-- ❌ Dev wallets on mainnet (security)
-
-## Best Practices
-
-<AccordionGroup>
-  <Accordion title="Token Storage">
-    **Secure Storage:**
-    ```javascript
-    // ✅ Good: OS keychain
-    const keytar = require('keytar');
-    await keytar.setPassword('aether-mcp', 'session-token', token);
-
-    // ✅ Good: Encrypted file
-    const encrypted = encrypt(token, userPassword);
-    fs.writeFileSync('~/.aether/session', encrypted);
-
-    // ❌ Bad: Plain localStorage
-    localStorage.setItem('token', token); // XSS risk
-
-    // ❌ Bad: Git repository
-    // Never commit tokens!
-    ```
-  </Accordion>
-
-  <Accordion title="Session Lifecycle Management">
-    ```javascript
-    // Check session on startup
-    async function ensureAuthenticated() {
-      try {
-        const info = await mcp.call('session_info');
-        console.log('Session active:', info.data.walletAddress);
-        return true;
-      } catch (error) {
-        // Session expired or not authenticated
-        await authenticate();
-      }
-    }
-
-    // Periodic session check
-    setInterval(async () => {
-      const info = await mcp.call('session_info');
-      const expiresIn = new Date(info.data.expiresAt) - Date.now();
-
-      if (expiresIn < 3600000) { // < 1 hour
-        console.warn('Session expiring soon, refresh recommended');
-      }
-    }, 60000); // Check every minute
-    ```
-  </Accordion>
-
-  <Accordion title="Error Handling">
-    ```javascript
-    async function callTool(tool, params) {
-      try {
-        return await mcp.call(tool, params);
-      } catch (error) {
-        if (error.code === 'UNAUTHENTICATED') {
-          // Session expired, re-authenticate
-          await authenticate();
-          // Retry the call
-          return await mcp.call(tool, params);
-        }
-        throw error;
-      }
-    }
-    ```
-  </Accordion>
-
-  <Accordion title="Multi-Device Support">
-    ```javascript
-    // Each device/client gets its own sessionId
-    // All sessions for same wallet share the same data
-
-    // Device 1
-    const auth1 = await authenticate(wallet);
-    // sessionId: "abc-123"
-
-    // Device 2 (same wallet)
-    const auth2 = await authenticate(wallet);
-    // sessionId: "def-456"
-
-    // Both can access same conversations, orders, etc.
-    // Revoke one session without affecting the other
-    ```
-  </Accordion>
-</AccordionGroup>
+- Server restarts
+- MCP transport reconnections
+- Different MCP clients (same wallet)
 
 ## Rate Limiting
 
@@ -387,6 +323,58 @@ Authentication endpoints have strict rate limits to prevent brute force:
 After 5 failed authentication attempts, you must wait 15 minutes before trying again.
 </Warning>
 
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Token Storage">
+    ```javascript
+    // Good: OS keychain
+    const keytar = require('keytar');
+    await keytar.setPassword('aether-mcp', 'session-token', token);
+
+    // Good: Encrypted file
+    const encrypted = encrypt(token, userPassword);
+    fs.writeFileSync('~/.aether/session', encrypted);
+
+    // Bad: Plain localStorage (XSS risk)
+    // Bad: Git repository (never commit tokens!)
+    ```
+  </Accordion>
+
+  <Accordion title="Session Lifecycle Management">
+    ```javascript
+    // Check session on startup
+    async function ensureAuthenticated() {
+      try {
+        const info = await mcp.call('session_info');
+        console.log('Session active:', info.data.walletAddress);
+        return true;
+      } catch (error) {
+        // Session expired - create new wallet
+        await mcp.call('wallet_create', { airdropSol: 1 });
+      }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    ```javascript
+    async function callTool(tool, params) {
+      try {
+        return await mcp.call(tool, params);
+      } catch (error) {
+        if (error.code === 'UNAUTHENTICATED') {
+          // Session expired, re-authenticate
+          await mcp.call('wallet_create', { airdropSol: 1 });
+          return await mcp.call(tool, params);
+        }
+        throw error;
+      }
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
 ## Next Steps
 
 <CardGroup cols={2}>
@@ -397,9 +385,9 @@ After 5 failed authentication attempts, you must wait 15 minutes before trying a
     Create x402 payments
   </Card>
   <Card title="Marketplace" icon="store" href="/mcp/marketplace-tools">
-    Register as provider or consumer
+    Register as provider or consumer (mainnet)
   </Card>
-  <Card title="Agent Wallets" icon="robot" href="/mcp/wallet-tools#agent-wallets">
-    Create autonomous wallets
+  <Card title="A2A Protocol" icon="robot" href="/mcp/a2a-tools">
+    Agent-to-agent communication
   </Card>
 </CardGroup>

@@ -6,74 +6,61 @@ icon: 'shield'
 
 ## Wallet-as-Identity
 
-Aether MCP uses **Wallet-as-Identity** authentication: your Solana wallet **IS** your identity. No usernames, no passwords—just cryptographic signatures.
+Aether MCP uses **Wallet-as-Identity** authentication: your Solana wallet **IS** your identity. No usernames, no passwords -- just cryptographic signatures.
 
 ### Why Wallet-as-Identity?
 
-- 🔐 **Cryptographically Secure**: Ed25519 signatures cannot be forged
-- 🚫 **No Passwords**: No risk of password leaks or brute force
-- 🎯 **One Identity**: Your wallet address is your unique identifier
-- ⚡ **Permissionless**: No registration required, authenticate instantly
-- 🔗 **Cross-Platform**: Same identity across all MCP clients
+- **Cryptographically Secure**: Ed25519 signatures cannot be forged
+- **No Passwords**: No risk of password leaks or brute force
+- **One Identity**: Your wallet address is your unique identifier
+- **Permissionless**: No registration required, authenticate instantly
+- **Cross-Platform**: Same identity across all MCP clients
 
 ## Authentication Flows
 
-### Development Flow (Devnet Only)
+### Development Flow (All Networks)
 
 **Best for**: Testing, experimentation, rapid prototyping
 
+`wallet_create` handles **everything in a single call**: generates a wallet, encrypts and stores it, auto-authenticates (challenge + sign + verify + JWT), and airdrops SOL on devnet.
+
 <Steps>
-  <Step title="Generate Wallet">
+  <Step title="Create and Authenticate">
     ```json
     {
-      "tool": "wallet_generate",
+      "tool": "wallet_create",
       "params": {
-        "airdropSol": 1
+        "airdropSol": 1,
+        "label": "my-test-wallet"
       }
     }
     ```
 
-    The server generates a wallet and stores it encrypted. Returns:
+    Returns a fully authenticated session:
     ```json
     {
       "success": true,
       "data": {
         "address": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
-        "balance": { "sol": 1.0, "usdc": 0, "athr": 0 },
-        "network": "devnet"
-      }
-    }
-    ```
-  </Step>
-
-  <Step title="Auto-Authenticate">
-    ```json
-    {
-      "tool": "wallet_dev_auto_auth"
-    }
-    ```
-
-    Instantly creates a session. Returns JWT token:
-    ```json
-    {
-      "success": true,
-      "data": {
+        "label": "my-test-wallet",
+        "network": "devnet",
+        "balances": { "sol": 1.0, "usdc": 0, "athr": 0 },
         "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        "walletAddress": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
-        "expiresAt": "2024-02-13T10:30:00Z"
+        "authenticated": true,
+        "isNewSession": true
       }
     }
     ```
   </Step>
 </Steps>
 
-<Warning>
-**Devnet Only**: These tools are **disabled on mainnet** for security. Server-managed wallets are only safe for testing.
-</Warning>
+<Check>
+One call to go from nothing to a fully authenticated, funded wallet. Ready to use all tools immediately.
+</Check>
 
-### Production Flow (All Networks)
+### Production Flow (Mainnet)
 
-**Best for**: Production, mainnet, user-owned wallets
+**Best for**: Production, user-owned wallets (Phantom, Solflare, etc.)
 
 <Steps>
   <Step title="Get Challenge">
@@ -92,8 +79,8 @@ Aether MCP uses **Wallet-as-Identity** authentication: your Solana wallet **IS**
       "success": true,
       "data": {
         "nonce": "a1b2c3d4e5f6...",
-        "message": "Sign this message to authenticate with Aether MCP\n\nWallet: YOUR_WALLET_ADDRESS\nNonce: a1b2c3d4e5f6...\nTimestamp: 2024-02-06T10:15:30Z",
-        "expiresAt": "2024-02-06T10:20:30Z"
+        "message": "Sign this message to authenticate with Aether MCP\n\nWallet: YOUR_WALLET_ADDRESS\nNonce: a1b2c3d4e5f6...\nTimestamp: 2025-02-06T10:15:30Z",
+        "expiresAt": "2025-02-06T10:20:30Z"
       }
     }
     ```
@@ -152,10 +139,10 @@ Aether MCP uses **Wallet-as-Identity** authentication: your Solana wallet **IS**
     {
       "success": true,
       "data": {
-        "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
         "walletAddress": "YOUR_WALLET_ADDRESS",
-        "createdAt": "2024-02-06T10:15:30Z",
-        "expiresAt": "2024-02-13T10:15:30Z"
+        "sessionToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+        "isNewSession": true,
+        "expiresAt": "2025-02-13T10:15:30Z"
       }
     }
     ```
@@ -163,6 +150,50 @@ Aether MCP uses **Wallet-as-Identity** authentication: your Solana wallet **IS**
     <Check>Session token valid for **7 days** by default.</Check>
   </Step>
 </Steps>
+
+<Note>
+`wallet_connect` is **mainnet-only**. On devnet, `wallet_create` handles authentication automatically.
+</Note>
+
+## Session Fingerprinting
+
+The server creates a **session fingerprint** using `SHA256(IP + User-Agent)` to associate sessions with clients. This enables:
+
+- **Automatic session persistence**: Reconnecting from the same client restores your session
+- **Wallet-to-fingerprint linking**: The server remembers which wallet was used from which client
+- **Keypair restoration on devnet**: When reconnecting, the server can automatically restore your wallet keypair
+
+```
+Fingerprint = SHA256(client_ip + user_agent_header)
+```
+
+This means that if you reconnect from the same device/client, your previous wallet session can be reconstructed automatically without re-authentication.
+
+## Session Persistence
+
+### Configurable Timeout
+
+Session timeout is configurable via the `MCP_SESSION_TIMEOUT_MS` environment variable:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `MCP_SESSION_TIMEOUT_MS` | `3600000` (1 hour) | Time before an inactive in-memory session is cleaned up |
+
+<Note>
+This controls **in-memory** session cleanup only. The session data persists in the database (SQLite/Redis) and can be reconstructed.
+</Note>
+
+### Automatic Session Reconstruction
+
+When an in-memory session expires but the session data still exists in the database, the server **automatically reconstructs** the session:
+
+1. Client reconnects with the same fingerprint
+2. Server finds the fingerprint-wallet link in the database
+3. Session state is rebuilt from persisted data
+4. On devnet, the wallet keypair is restored from encrypted storage
+5. The session is fully functional again without re-authentication
+
+This makes the experience seamless across MCP transport reconnections and server restarts.
 
 ## Session Management
 
@@ -194,24 +225,9 @@ JWT tokens are issued after successful authentication:
 }
 ```
 
-Returns current session details:
-```json
-{
-  "success": true,
-  "data": {
-    "walletAddress": "8FE27iak...",
-    "createdAt": "2024-02-06T10:15:30Z",
-    "lastActivity": "2024-02-06T11:30:00Z",
-    "expiresAt": "2024-02-13T10:15:30Z",
-    "conversationCount": 3,
-    "orderCount": 1
-  }
-}
-```
-
 ### Session Restoration
 
-Lost your token? Restore your session:
+Restore your session from a JWT token:
 
 ```json
 {
@@ -276,11 +292,11 @@ After revocation, all existing tokens become invalid immediately. You'll need to
 
 <AccordionGroup>
   <Accordion title="Store Tokens Securely">
-    - ✅ Use secure storage (OS keychain, encrypted storage)
-    - ✅ Never commit tokens to git
-    - ✅ Regenerate tokens if exposed
-    - ❌ Don't store in localStorage (XSS risk)
-    - ❌ Don't log tokens in production
+    - Use secure storage (OS keychain, encrypted storage)
+    - Never commit tokens to git
+    - Regenerate tokens if exposed
+    - Don't store in localStorage (XSS risk)
+    - Don't log tokens in production
   </Accordion>
 
   <Accordion title="Signature Verification">
@@ -300,7 +316,6 @@ After revocation, all existing tokens become invalid immediately. You'll need to
 
   <Accordion title="Mainnet Safety">
     On mainnet:
-    - No server-managed wallets (`wallet_generate` disabled)
     - Signature verification extra strict
     - Rate limiting enforced (5 auth attempts / 15 min)
     - All transfers logged and monitored
@@ -355,13 +370,8 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
   <Accordion title="Session Expired">
     **Solution:** Re-authenticate:
-    ```json
-    {
-      "tool": "session_auth",
-      "params": { "walletAddress": "YOUR_WALLET" }
-    }
-    ```
-    Then sign and connect again.
+    - On devnet: call `wallet_create` again
+    - On mainnet: `session_auth` -> sign -> `wallet_connect`
   </Accordion>
 
   <Accordion title="Too Many Auth Attempts">
@@ -387,10 +397,10 @@ Authorization: Bearer YOUR_JWT_TOKEN
   <Card title="Wallet Tools" icon="wallet" href="/mcp/wallet-tools">
     Use authenticated wallet tools
   </Card>
-  <Card title="Agent Wallets" icon="robot" href="/mcp/wallet-tools#agent-wallets">
-    Create autonomous wallets
+  <Card title="Payment Tools" icon="money-bill" href="/mcp/payment-tools">
+    Create x402 payments
   </Card>
   <Card title="Marketplace" icon="store" href="/mcp/marketplace-tools">
-    Access the AI marketplace
+    Access the AI marketplace (mainnet)
   </Card>
 </CardGroup>

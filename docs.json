@@ -127,6 +127,7 @@
             "pages": [
               "mcp/wallet-tools",
               "mcp/payment-tools",
+              "mcp/a2a-tools",
               "mcp/marketplace-tools",
               "mcp/session-management"
             ]

@@ -38,7 +38,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     }
     ```
 
-    "✅ Transfer complete! Your friend received 10 USDC. Transaction: `3Zq8M9xKv...`"
+    "Transfer complete! Your friend received 10 USDC. Transaction: `3Zq8M9xKv...`"
   </Step>
 </Steps>
 
@@ -67,9 +67,9 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     ```
 
     "Found 3 agents:
-    1. **DataAnalyzer AI** - 4.8⭐ - 10 USDC - Sales analysis expert
-    2. **InsightBot** - 4.9⭐ - 25 USDC - Advanced analysis with visualizations
-    3. **QuickStats** - 4.5⭐ - 5 USDC - Quick statistical analysis
+    1. **DataAnalyzer AI** - 4.8 stars - 10 USDC - Sales analysis expert
+    2. **InsightBot** - 4.9 stars - 25 USDC - Advanced analysis with visualizations
+    3. **QuickStats** - 4.5 stars - 5 USDC - Quick statistical analysis
 
     Which one would you like to use?"
   </Step>
@@ -97,7 +97,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
 
 ---
 
-### Example 3: Claude Buys Services Autonomously
+### Example 3: Set Up Autonomous Purchasing
 
 **Conversation:**
 
@@ -107,20 +107,25 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
   </Step>
 
   <Step title="Claude">
-    "Got it! I'll create an autonomous wallet to manage this..."
+    "Got it! I'll create a dedicated wallet for this..."
 
     ```json
-    // 1. Create agent wallet
+    // 1. Create a labeled wallet for the task
     {
-      "tool": "wallet_create_agent",
-      "params": { "label": "data-analysis-buyer" }
+      "tool": "wallet_create",
+      "params": {
+        "label": "data-analysis-buyer",
+        "airdropSol": 1
+      }
     }
     ```
 
-    "Wallet created! Now funding it with your budget..."
+    "Wallet created and authenticated! Address: `9KvY3mN7...`
+
+    Now I'll need you to fund it with 50 USDC. You can transfer from your main wallet:"
 
     ```json
-    // 2. Transfer 50 USDC to agent wallet
+    // 2. Transfer budget to the dedicated wallet
     {
       "tool": "wallet_transfer",
       "params": {
@@ -131,7 +136,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     }
     ```
 
-    "Done! I now have an autonomous wallet with 50 USDC. I can buy analysis services automatically without asking you each time. Want me to start the first analysis now?"
+    "Done! The wallet has 50 USDC. I can now autonomously purchase analysis services. Want me to start the first analysis now?"
   </Step>
 
   <Step title="You">
@@ -140,10 +145,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
 
   <Step title="Claude">
     ```json
-    // 3. Switch to agent wallet
-    { "tool": "wallet_use_agent", "params": { "address": "9KvY..." } }
-
-    // 4. Accept order (automatic payment!)
+    // 3. Accept an order (payment signed automatically by the session wallet)
     {
       "tool": "consumer_accept_order",
       "params": {
@@ -154,26 +156,39 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     }
     ```
 
-    "✅ First analysis ordered and paid automatically! (10 USDC)
+    "First analysis ordered and paid automatically! (10 USDC)
     40 USDC remaining for upcoming weeks."
   </Step>
 </Steps>
 
 ---
 
-### Example 4: Receive Payment for Your Service
+### Example 4: Register as a Service Provider
 
 **Conversation:**
 
 <Steps>
   <Step title="You (Service Provider)">
-    "Claude, someone wants to buy my data analysis service. Can you handle this?"
+    "Claude, I want to offer my data analysis service on the marketplace."
   </Step>
 
   <Step title="Claude">
-    "Absolutely! Let's register you on the marketplace..."
+    "Let me set up your wallet and register you on the marketplace..."
 
     ```json
+    // 1. Create wallet (auto-authenticates)
+    {
+      "tool": "wallet_create",
+      "params": {
+        "label": "my-service-provider"
+      }
+    }
+    ```
+
+    "Wallet ready! Now registering on the marketplace..."
+
+    ```json
+    // 2. Register as provider
     {
       "tool": "provider_register",
       "params": {
@@ -195,7 +210,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     }
     ```
 
-    "✅ Registered! You're now visible on the marketplace. When someone contacts you, I'll create order proposals and handle payments."
+    "Registered! You're now visible on the marketplace. When someone contacts you, I'll create order proposals and handle payments automatically."
   </Step>
 </Steps>
 
@@ -220,11 +235,11 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     "Here's your last 30 transactions:
 
     **Total Spent:** 75 USDC
-    - 10 USDC → DataAnalyzer (02/06)
-    - 25 USDC → InsightBot (02/05)
-    - 15 USDC → QuickStats (02/04)
-    - 10 USDC → friend (02/03)
-    - 15 USDC → DataAnalyzer (02/02)
+    - 10 USDC -> DataAnalyzer (02/06)
+    - 25 USDC -> InsightBot (02/05)
+    - 15 USDC -> QuickStats (02/04)
+    - 10 USDC -> friend (02/03)
+    - 15 USDC -> DataAnalyzer (02/02)
 
     **Current Balance:** 125 USDC"
   </Step>
@@ -238,17 +253,14 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
 
 <Steps>
   <Step title="You">
-    "I'm trying to access this API but it requires payment: `https://api.example.com/premium-data`"
+    "I'm trying to access this API but it requires payment."
   </Step>
 
   <Step title="Claude">
-    "No problem! I'll create an x402 payment for you..."
+    "No problem! I'll create an x402 payment..."
 
     ```json
-    // 1. API returns 402 with payment requirements
-    // Claude reads: "1 USDC required for SERVER_WALLET"
-
-    // 2. Claude creates payment
+    // 1. Claude creates payment
     {
       "tool": "payment_create",
       "params": {
@@ -267,7 +279,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
     X-Payment: eyJ4NDAyVmVyc2lvbiI6...
     ```
 
-    "✅ Access granted! Here's the premium data you requested..."
+    "Access granted! Here's the premium data you requested..."
   </Step>
 </Steps>
 
@@ -293,7 +305,7 @@ Here are real examples of how you'd use Aether MCP with Claude or other AI assis
 1. **You talk naturally to Claude** - "Send 10 USDC to my friend"
 2. **Claude understands and calls the right tools** - Uses `wallet_transfer`
 3. **Action executes on Solana** - Real blockchain transaction
-4. **Claude confirms** - "✅ Transfer complete!"
+4. **Claude confirms** - "Transfer complete!"
 
 That's it! No need to understand the tech, just talk naturally to Claude.
 
@@ -319,8 +331,8 @@ Then restart Claude Desktop. The Aether tools will be available automatically!
   <Step title="Connect Claude to MCP">
     Add `https://mcp-devnet.getaether.xyz/mcp` to your MCP client
   </Step>
-  <Step title="Generate Test Wallet">
-    Tell Claude: "Generate me a test wallet with 1 SOL"
+  <Step title="Create a Wallet">
+    Tell Claude: "Create a wallet with 1 SOL"
   </Step>
   <Step title="Test a Transfer">
     "Send 0.1 SOL to this address: ..."

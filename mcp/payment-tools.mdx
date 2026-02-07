@@ -1,26 +1,24 @@
 ---
 title: 'Payment Tools'
-description: 'Create, verify, and settle x402 payments on Solana'
+description: 'Create and settle x402 payments on Solana'
 icon: 'money-bill'
 ---
 
 ## Overview
 
-Aether MCP provides **4 payment tools** for creating and managing x402 payments:
+Aether MCP provides **2 payment tools** for x402 payments:
 
-- 💳 **payment_create**: Create signed payment headers
-- ✅ **payment_verify**: Verify payment requirements
-- 🔄 **payment_settle**: Execute settlement on Solana
-- 📋 **payment_get_schemes**: List supported payment schemes
+- **payment_create**: Create a signed payment header
+- **payment_execute**: Verify and settle a payment in one call
 
 ## What is x402?
 
 x402 is the **HTTP 402 Payment Required** standard for machine-to-machine payments. It enables:
 
-- ✨ **Micropayments**: Pay for API calls, data, services
-- 🔐 **Cryptographic Proof**: Payments are signed and verifiable
-- ⚡ **Instant Settlement**: On-chain settlement in seconds
-- 🤖 **Agent-Friendly**: Perfect for AI-to-AI commerce
+- **Micropayments**: Pay for API calls, data, services
+- **Cryptographic Proof**: Payments are signed and verifiable
+- **Instant Settlement**: On-chain settlement in seconds
+- **Agent-Friendly**: Perfect for AI-to-AI commerce
 
 ## Payment Tools
 
@@ -29,13 +27,16 @@ x402 is the **HTTP 402 Payment Required** standard for machine-to-machine paymen
 Create a signed x402 payment header for USDC or ATHR transfer.
 
 **Parameters:**
-- `to`: Recipient wallet address (required)
-- `amount`: Amount to pay (required)
-- `token`: 'usdc' or 'athr' (default: 'usdc')
-- `validFor` (optional): Payment validity in seconds (60-86400, default: 3600)
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `to` | string | Yes | - | Recipient wallet address |
+| `amount` | number | Yes | - | Amount to pay (must be positive) |
+| `token` | string | No | `usdc` | Token to use: `usdc` or `athr` |
+| `validFor` | number | No | 3600 | Payment validity in seconds (60-86400) |
 
 **Returns:**
-- `paymentHeader`: Base64-encoded x402 payment
+- `paymentHeader`: Base64-encoded x402 payment (send this to the seller)
 - Payment details (from, to, amount, nonce, expiration)
 
 **Example:**
@@ -56,7 +57,7 @@ Create a signed x402 payment header for USDC or ATHR transfer.
 {
   "success": true,
   "data": {
-    "paymentHeader": "eyJ4NDAyVmVyc2lvbiI6MSwic2NoZW1lIjoiZXhhY3QiLCJuZXR3b3JrIjoic29sYW5hLWRldm5ldCIsInBheWxvYWQiOnsiYXV0aG9yaXphdGlvbiI6eyJmcm9tIjoiOEZFMjdpYWs0YjJ5YWRLG9vZ0FQQUdOOVZubVlZWm04ZVVGNzFRaFZiZ05yIiwidG8iOiI1SGd0UDliRTN5aFJYeksyNFFybmtTdzlIUXhWUG1XSkt2cVk3cFl0OGcySCIsInZhbHVlIjoiMTA1MDAwMDAiLCJhc3NldCI6IjR6TU1DOXNydDVSaTVYMTRHQWdYaGFIaWkzR25QQUVFUllQSmdaSkRuY0RVIiwidmFsaWRCZWZvcmUiOjE3MDcyMjU2MDAsIm5vbmNlIjoiYTFiMmMzZDRlNWY2Nzg5MGFiY2RlZjEyMzQ1Njc4OTAifSwic2lnbmVkVHJhbnNhY3Rpb24iOiIuLi4iLCJ0cmFuc2FjdGlvbk1ldGEiOnsiYmxvY2toYXNoIjoiLi4uIiwibGFzdFZhbGlkQmxvY2tIZWlnaHQiOjEyMzQ1Njc4fX19",
+    "paymentHeader": "eyJ4NDAyVmVyc2lvbiI6MSwi...",
     "from": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
     "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
     "amount": 10.5,
@@ -74,7 +75,7 @@ Create a signed x402 payment header for USDC or ATHR transfer.
 </Tip>
 
 **Balance Check:**
-The tool automatically checks your balance before creating the payment. If insufficient, it returns:
+The tool automatically checks your balance before creating the payment. If insufficient:
 
 ```json
 {
@@ -90,27 +91,33 @@ The tool automatically checks your balance before creating the payment. If insuf
 
 ---
 
-### payment_verify
+### payment_execute
 
-Verify an x402 payment header against requirements.
+Verify and settle an x402 payment **in one call**.
 
 **Parameters:**
-- `paymentHeader`: Base64-encoded x402 payment (required)
-- `requirements`: Payment requirements object (required)
-  - `network`: Network ID (e.g., 'solana-devnet')
-  - `maxAmountRequired`: Maximum amount in micro units
-  - `payTo`: Expected recipient address
-  - `asset`: Token mint address
-  - `scheme`: 'exact' (default)
 
-**Returns:**
-- `valid`: Boolean verification result
-- Verification details
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `paymentHeader` | string | Yes | Base64-encoded x402 payment header |
+| `requirements` | object | Yes | Payment requirements to verify against |
+
+**Requirements object:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `network` | string | Yes | Network ID (e.g., `solana-devnet`) |
+| `maxAmountRequired` | string | Yes | Maximum amount in micro units (e.g., `"10500000"` for 10.5 USDC) |
+| `payTo` | string | Yes | Expected recipient address |
+| `asset` | string | Yes | Token mint address |
+| `scheme` | string | No | Payment scheme (default: `exact`) |
+| `resource` | string | No | Resource identifier |
+| `description` | string | No | Payment description |
 
 **Example:**
 ```json
 {
-  "tool": "payment_verify",
+  "tool": "payment_execute",
   "params": {
     "paymentHeader": "eyJ4NDAyVmVyc2lvbiI6...",
     "requirements": {
@@ -129,56 +136,7 @@ Verify an x402 payment header against requirements.
 {
   "success": true,
   "data": {
-    "valid": true,
-    "from": "8FE27iak4b2yadKoogAPAGN9VnmYYZm8eUF71QhVbgNr",
-    "to": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
-    "amount": "10500000",
-    "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-    "network": "solana-devnet",
-    "validBefore": 1707225600
-  }
-}
-```
-
-<Check>
-Use this before settlement to ensure the payment meets your requirements.
-</Check>
-
----
-
-### payment_settle
-
-Execute settlement for a verified x402 payment on Solana.
-
-**Parameters:**
-- `paymentHeader`: Base64-encoded x402 payment (required)
-- `requirements`: Payment requirements (same as verify)
-
-**Returns:**
-- Transaction signature
-- Settlement confirmation
-
-**Example:**
-```json
-{
-  "tool": "payment_settle",
-  "params": {
-    "paymentHeader": "eyJ4NDAyVmVyc2lvbiI6...",
-    "requirements": {
-      "network": "solana-devnet",
-      "maxAmountRequired": "10500000",
-      "payTo": "5HgtP9bE3yhRXzKZ4QrnkSw9HQxVPmWJKvqY7pYt8g2H",
-      "asset": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
-    }
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
+    "verified": true,
     "settled": true,
     "transactionHash": "3Zq8M9xKvRnP2yJwN5tLhQ8K7fX4bV9mD1cY6eU2rG5s",
     "network": "solana-devnet"
@@ -190,34 +148,9 @@ Execute settlement for a verified x402 payment on Solana.
 **Mainnet Warning**: On mainnet, this executes **real transactions with real money**. The server logs detailed warnings before settlement.
 </Warning>
 
----
-
-### payment_get_schemes
-
-List supported payment schemes and networks.
-
-**No Parameters Required**
-
-**Example:**
-```json
-{
-  "tool": "payment_get_schemes"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "currentNetwork": "solana-devnet",
-    "supportedSchemes": ["exact"],
-    "usdcMint": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
-  }
-}
-```
-
 ## Payment Flow
+
+The x402 flow is simplified to two steps:
 
 ```mermaid
 sequenceDiagram
@@ -227,8 +160,7 @@ sequenceDiagram
 
     Buyer->>Buyer: payment_create(to, amount)
     Buyer->>Seller: Send paymentHeader
-    Seller->>Seller: payment_verify(header, requirements)
-    Seller->>Blockchain: payment_settle(header)
+    Seller->>Blockchain: payment_execute(header, requirements)
     Blockchain-->>Seller: Transaction confirmed
     Seller-->>Buyer: Service delivered
 ```
@@ -240,11 +172,8 @@ sequenceDiagram
   <Step title="Send Header to Seller">
     Buyer sends the `paymentHeader` to seller (HTTP header, JSON, etc.)
   </Step>
-  <Step title="Seller Verifies">
-    Seller calls `payment_verify` to ensure payment meets requirements.
-  </Step>
-  <Step title="Seller Settles">
-    Seller calls `payment_settle` to execute on-chain transaction.
+  <Step title="Seller Verifies and Settles">
+    Seller calls `payment_execute` which verifies **and** settles in one call.
   </Step>
   <Step title="Service Delivered">
     After confirmation, seller delivers the service/data.
@@ -272,21 +201,20 @@ sequenceDiagram
         });
       }
 
-      // Verify payment
-      const verified = await mcp.call('payment_verify', {
+      // Verify and settle in one call
+      const result = await mcp.call('payment_execute', {
         paymentHeader,
-        requirements: { /* ... */ }
+        requirements: {
+          network: 'solana-devnet',
+          maxAmountRequired: '1000000',
+          payTo: 'SERVER_WALLET_ADDRESS',
+          asset: 'USDC_MINT'
+        }
       });
 
-      if (!verified.data.valid) {
-        return res.status(402).json({ error: 'Invalid payment' });
+      if (!result.data.settled) {
+        return res.status(402).json({ error: 'Payment failed' });
       }
-
-      // Settle payment
-      await mcp.call('payment_settle', {
-        paymentHeader,
-        requirements: { /* ... */ }
-      });
 
       // Deliver data
       res.json({ data: premiumData });
@@ -325,26 +253,6 @@ sequenceDiagram
     }
     ```
   </Accordion>
-
-  <Accordion title="Marketplace Order Payment">
-    ```javascript
-    // Marketplace automatically creates payment
-    const order = await mcp.call('provider_create_order', {
-      conversationId: 'conv-123',
-      description: 'Data analysis service',
-      price: 25,
-      deliveryTime: 60
-    });
-
-    // Consumer accepts and payment created automatically
-    await mcp.call('consumer_accept_order', {
-      orderId: order.data.orderId,
-      conversationId: 'conv-123',
-      paymentMethod: 'usdc'
-    });
-    // Payment header generated and settled internally
-    ```
-  </Accordion>
 </AccordionGroup>
 
 ## Token Support
@@ -369,75 +277,30 @@ sequenceDiagram
 
 Before settlement, the server validates:
 
-1. ✅ Signature is valid (Ed25519)
-2. ✅ Payment amount matches requirements
-3. ✅ Recipient address is correct
-4. ✅ Token mint address is correct
-5. ✅ Payment hasn't expired (`validBefore`)
-6. ✅ Nonce hasn't been used (replay protection)
-7. ✅ Network matches (devnet/mainnet)
-
-### Mainnet Safety
-
-On mainnet, extra precautions:
-
-```javascript
-// Server logs detailed warning
-logger.warn('⚠️  MAINNET PAYMENT SETTLEMENT', {
-  amount: 10.5,
-  payTo: '5HgtP9bE...',
-  asset: 'EPjFWdd...'
-});
-
-// After settlement
-logger.info('✅ Mainnet payment settled', {
-  signature: '3Zq8M9...',
-  network: 'solana-mainnet-beta'
-});
-```
-
-### Rate Limiting
-
-- **payment_create**: 100 requests/minute per wallet
-- **payment_settle**: 100 requests/minute per wallet (stricter on mainnet)
+1. Signature is valid (Ed25519)
+2. Payment amount matches requirements
+3. Recipient address is correct
+4. Token mint address is correct
+5. Payment hasn't expired (`validBefore`)
+6. Nonce hasn't been used (replay protection)
+7. Network matches (devnet/mainnet)
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion title="Insufficient Balance">
-    **Error:**
-    ```json
-    {
-      "error": "Insufficient USDC balance. Have: 5.0, need: 10.5"
-    }
-    ```
-
     **Solution:**
     - Fund your wallet with more USDC/ATHR
-    - On devnet: Use `wallet_generate` with airdrop
+    - On devnet: Use `wallet_create` with `airdropSol` for SOL gas
   </Accordion>
 
   <Accordion title="Payment Expired">
-    **Error:**
-    ```json
-    {
-      "error": "Payment expired (validBefore timestamp passed)"
-    }
-    ```
-
     **Solution:**
     - Create a new payment with `payment_create`
     - Use longer `validFor` parameter (max 24 hours)
   </Accordion>
 
   <Accordion title="Invalid Payment Header">
-    **Error:**
-    ```json
-    {
-      "error": "Invalid x402 payment format"
-    }
-    ```
-
     **Solution:**
     - Ensure header is base64-encoded correctly
     - Don't modify the header after creation
@@ -445,13 +308,6 @@ logger.info('✅ Mainnet payment settled', {
   </Accordion>
 
   <Accordion title="Nonce Already Used">
-    **Error:**
-    ```json
-    {
-      "error": "Nonce already used (replay protection)"
-    }
-    ```
-
     **Solution:**
     - Create a new payment (each payment has unique nonce)
     - Don't attempt to settle same payment twice
@@ -468,7 +324,7 @@ logger.info('✅ Mainnet payment settled', {
     Use payments in the marketplace
   </Card>
   <Card title="A2A Protocol" icon="robot" href="/mcp/a2a-tools">
-    Agent-to-agent payment requests
+    Agent-to-agent payment invoices
   </Card>
   <Card title="x402 Standard" icon="book" href="/sdk/x402-payments">
     Deep dive into x402 protocol
